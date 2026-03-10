@@ -2,6 +2,8 @@
 
 an elegant desktop screensaver that endlessly shuffles masterpieces from the world's greatest museums.
 
+![artsaver](https://raw.githubusercontent.com/sudotman/sudotman/refs/heads/main/demos/artsaver/demo.png)
+
 ## features
 
 - **6 museum sources** — met, art institute of chicago, rijksmuseum, harvard art museums, smithsonian, national gallery of art
