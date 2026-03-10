@@ -1,33 +1,33 @@
-# ArtSaver
+# artsaver
 
-An elegant desktop screensaver that endlessly shuffles masterpieces from the world's greatest museums.
+an elegant desktop screensaver that endlessly shuffles masterpieces from the world's greatest museums.
 
-## Features
+## features
 
-- **6 museum sources** -- MET, Art Institute of Chicago, Rijksmuseum, Harvard Art Museums, Smithsonian, National Gallery of Art
-- **Museum-mode display** -- full artwork with artist, title, year, medium, and collection label
-- **Immersive mode** -- hides metadata until hover; auto-hides UI after 3 seconds
-- **Curated playlists** -- 8 built-in themed collections (Dutch Golden Age, Impressionism, Ukiyo-e, Renaissance Masters, etc.) plus custom playlists
-- **Favorites** -- heart any artwork with `H`; export as JSON or a styled HTML gallery
-- **History** -- browseable log of every artwork shown, with timestamps
-- **Ambient mode** -- mosaic wall of drifting thumbnails; click any to focus
-- **Transition variety** -- crossfade, Ken Burns zoom, gentle slide, dissolve-to-black, or random
-- **Pause / resume** -- freeze on a piece indefinitely (`P`)
-- **Manual skip** -- `→`, `Space`, or `N`
-- **Keyboard shortcuts** -- press `?` to see all shortcuts
-- **Idle auto-activation** -- app appears fullscreen when your computer goes idle
-- **Smart shuffle** -- per-source weighting, category filters (painting, sculpture, photography, etc.)
-- **Offline cache** -- configurable disk cache so artwork loads without internet
-- **Ambient audio** -- soft procedural museum ambience (brown noise through a low-pass filter)
-- **Local folder** -- opt-in path to blend your own images into the shuffle
-- **Companion widget** -- always-on-top mini display showing current artwork title
-- **Auto-start on boot** -- optional login item, starts minimized to tray
-- **Tray controls** -- right-click to skip, pause, toggle idle mode, or quit
-- **Config import/export** -- share your setup as a portable JSON file
-- **Accessibility** -- screen reader announcements, high-contrast labels, focus indicators, reduced motion support
-- **Cross-platform** -- Windows, macOS, Linux via Electron
+- **6 museum sources** — met, art institute of chicago, rijksmuseum, harvard art museums, smithsonian, national gallery of art
+- **museum-mode display** — full artwork with artist, title, year, medium, and collection label
+- **immersive mode** — hides metadata until hover; auto-hides ui after 3 seconds
+- **curated playlists** — 8 built-in themed collections (dutch golden age, impressionism, ukiyo-e, renaissance masters, etc.) plus custom playlists
+- **favorites** — heart any artwork with `h`; export as json or a styled html gallery
+- **history** — browseable log of every artwork shown, with timestamps
+- **ambient mode** — mosaic wall of drifting thumbnails; click any to focus
+- **transition variety** — crossfade, ken burns zoom, gentle slide, dissolve-to-black, or random
+- **pause / resume** — freeze on a piece indefinitely (`p`)
+- **manual skip** — `→`, `space`, or `n`
+- **keyboard shortcuts** — press `?` to see all shortcuts
+- **idle auto-activation** — app appears fullscreen when your computer goes idle
+- **smart shuffle** — per-source weighting, category filters (painting, sculpture, photography, etc.)
+- **offline cache** — configurable disk cache so artwork loads without internet
+- **ambient audio** — soft procedural museum ambience (brown noise through a low-pass filter)
+- **local folder** — opt-in path to blend your own images into the shuffle
+- **companion widget** — always-on-top mini display showing current artwork title
+- **auto-start on boot** — optional login item, starts minimized to tray
+- **tray controls** — right-click to skip, pause, toggle idle mode, or quit
+- **config import/export** — share your setup as a portable json file
+- **accessibility** — screen reader announcements, high-contrast labels, focus indicators, reduced motion support
+- **cross-platform** — windows, macos, linux via electron
 
-## Quick Start
+## quick Start
 
 ```bash
 git clone <repo-url> && cd artsaver
@@ -35,15 +35,15 @@ npm install
 npm run electron:dev
 ```
 
-## Build for Distribution
+## build for distribution
 
 ```bash
 npm run electron:build
 ```
 
-Installers appear in the `release/` folder. GitHub Actions also builds all three platforms on every tag push.
+installers appear in the `release/` folder. github actions also builds all three platforms on every tag push.
 
-## Keyboard Shortcuts
+## keyboard shortcuts
 
 | Key                  | Action                     |
 |----------------------|----------------------------|
@@ -59,7 +59,7 @@ Installers appear in the `release/` folder. GitHub Actions also builds all three
 | `?`                  | Show all shortcuts         |
 | `Esc`                | Close any open panel       |
 
-## Settings
+## settings
 
 Open via the gear icon or `S`:
 
@@ -78,9 +78,9 @@ Open via the gear icon or `S`:
 | High-contrast labels | Off         | Accessibility: bolder label backgrounds          |
 | Screen reader        | Off         | Announce artwork changes via ARIA live region    |
 
-## Playlists
+## playlists
 
-Built-in curated collections:
+built-in curated collections:
 
 - Dutch Golden Age
 - Impressionism
@@ -93,11 +93,11 @@ Built-in curated collections:
 
 Select "Shuffle All" to return to random mode across all enabled sources.
 
-## Architecture
+## architecture
 
 ```
 artsaver/
-  electron/           Main process (window, tray, idle, cache, companion widget)
+  electron/           main process (window, tray, idle, cache, companion widget)
   src/
     components/       ArtworkStage, MuseumLabel, TitleBar, Settings, Favorites,
                       History, Playlists, AmbientMode, Shortcuts, Pause, ErrorBoundary
@@ -109,7 +109,7 @@ artsaver/
   .github/workflows/  CI/CD for cross-platform builds
 ```
 
-## Art Sources
+## art sources
 
 | Source                       | API                                    | License       |
 |------------------------------|----------------------------------------|---------------|
@@ -120,6 +120,6 @@ artsaver/
 | Smithsonian Open Access      | api.si.edu/openaccess                  | CC0           |
 | National Gallery of Art      | api.nga.gov                            | Public Domain |
 
-## License
+## license
 
 MIT
