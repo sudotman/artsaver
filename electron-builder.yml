@@ -1,0 +1,37 @@
+appId: com.artsaver.app
+productName: ArtSaver
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ArtSaver-${version}-Setup.${ext}
+
+mac:
+  target:
+    - target: dmg
+      arch: [universal]
+  artifactName: ArtSaver-${version}.${ext}
+  category: public.app-category.entertainment
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: ArtSaver-${version}.${ext}
+  category: Utility
+
+nsis:
+  oneClick: true
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: true

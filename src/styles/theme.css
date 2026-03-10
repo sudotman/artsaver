@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500&display=swap');
+
+:root {
+  --color-bg: #0a0a0a;
+  --color-bg-overlay: rgba(10, 10, 10, 0.65);
+  --color-text: #e8e4df;
+  --color-text-muted: #9a948c;
+  --color-accent: #c9a96e;
+  --color-border: rgba(201, 169, 110, 0.15);
+
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+
+  --transition-slow: 1.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-medium: 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-fast: 0.3s ease;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+button, a, input {
+  -webkit-app-region: no-drag;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
