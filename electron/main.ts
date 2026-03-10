@@ -218,7 +218,7 @@ ipcMain.handle('save-settings', (_e, data: Record<string, unknown>) => { saveSet
 ipcMain.handle('get-idle-time', () => powerMonitor.getSystemIdleTime());
 ipcMain.handle('toggle-fullscreen', () => { if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen()); });
 ipcMain.handle('minimize-window', () => mainWindow?.minimize());
-ipcMain.handle('close-window', () => mainWindow?.hide());
+ipcMain.handle('close-window', () => app.quit());
 
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });

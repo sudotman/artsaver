@@ -16,9 +16,12 @@ export function PlaylistPanel({ activePlaylist, customPlaylists, onSelect, onClo
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} />
 
-      <div style={{
-        position: 'relative', width: 480, maxHeight: '80vh', background: '#141414',
-        border: '1px solid var(--color-border)', borderRadius: 12, zIndex: 201,
+      <div
+        onClick={e => e.stopPropagation()}
+        onWheel={e => e.stopPropagation()}
+        style={{
+          position: 'relative', width: 480, maxHeight: '80vh', background: '#141414',
+          border: '1px solid var(--color-border)', borderRadius: 12, zIndex: 201,
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

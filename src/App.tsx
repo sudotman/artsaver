@@ -38,10 +38,11 @@ function AppMain() {
   const [showPlaylists, setShowPlaylists] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideUITimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef<string[]>([]);
   const backStackRef = useRef<Artwork[]>([]);
-  const advancingRef = useRef(false);
+  const fetchingRef = useRef(false);
 
   const interval = settings.intervalSeconds ?? 60;
   const immersive = settings.immersiveMode ?? false;
@@ -57,55 +58,78 @@ function AppMain() {
     if (backStackRef.current.length > 30) backStackRef.current.shift();
   }, []);
 
+  const finishTransition = useCallback((artwork: Artwork) => {
+    setCurrent(artwork);
+    addToHistory(artwork.id);
+    favStore.addToHistory(artwork);
+    setNext(null);
+    setTransitioning(false);
+    window.electronAPI?.setCurrentArtwork(`${artwork.title} — ${artwork.artist}`);
+
+    if (settings.offlineCacheEnabled) {
+      window.electronAPI?.cacheImage(artwork.id, artwork.imageUrl, {
+        id: artwork.id, title: artwork.title, artist: artwork.artist,
+        year: artwork.year, medium: artwork.medium, source: artwork.source,
+        sourceUrl: artwork.sourceUrl, collection: artwork.collection,
+      });
+    }
+  }, [addToHistory, favStore, settings.offlineCacheEnabled]);
+
+  const cancelPending = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (transitionTimer.current) { clearTimeout(transitionTimer.current); transitionTimer.current = null; }
+  }, []);
+
   // ─── Core advance (forward) ───
 
   const advance = useCallback(async () => {
-    if (advancingRef.current) return;
-    advancingRef.current = true;
+    if (fetchingRef.current) return;
 
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    cancelPending();
+
+    if (transitioning && next) {
+      if (current) pushToBackStack(current);
+      finishTransition(next);
+    }
+
+    fetchingRef.current = true;
 
     try {
       const artwork = await getRandomArtwork(settings, historyRef.current);
-      if (!artwork) { advancingRef.current = false; return; }
+      if (!artwork) { fetchingRef.current = false; return; }
 
       if (current) pushToBackStack(current);
 
       setNext(artwork);
       setTransitioning(true);
 
-      setTimeout(() => {
-        setCurrent(artwork);
-        addToHistory(artwork.id);
-        favStore.addToHistory(artwork);
-        setNext(null);
-        setTransitioning(false);
-        advancingRef.current = false;
-
-        window.electronAPI?.setCurrentArtwork(`${artwork.title} — ${artwork.artist}`);
-
-        if (settings.offlineCacheEnabled) {
-          window.electronAPI?.cacheImage(artwork.id, artwork.imageUrl, {
-            id: artwork.id, title: artwork.title, artist: artwork.artist,
-            year: artwork.year, medium: artwork.medium, source: artwork.source,
-            sourceUrl: artwork.sourceUrl, collection: artwork.collection,
-          });
-        }
+      transitionTimer.current = setTimeout(() => {
+        finishTransition(artwork);
+        fetchingRef.current = false;
       }, 2000);
-    } catch { advancingRef.current = false; }
-  }, [settings, addToHistory, favStore, current, pushToBackStack]);
+    } catch { fetchingRef.current = false; }
+  }, [settings, current, next, transitioning, pushToBackStack, finishTransition, cancelPending]);
 
   // ─── Go back ───
 
   const goBack = useCallback(() => {
-    if (advancingRef.current || backStackRef.current.length === 0) return;
+    if (backStackRef.current.length === 0) return;
 
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    cancelPending();
+
+    if (transitioning && next) {
+      setNext(null);
+      setTransitioning(false);
+      fetchingRef.current = false;
+    }
 
     const prev = backStackRef.current.pop()!;
     setCurrent(prev);
+    setNext(null);
+    setTransitioning(false);
+    fetchingRef.current = false;
     window.electronAPI?.setCurrentArtwork(`${prev.title} — ${prev.artist}`);
-  }, []);
+  }, [cancelPending, transitioning, next]);
 
   // ─── Init ───
 

@@ -34,11 +34,6 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
-  -webkit-app-region: drag;
-}
-
-button, a, input, select, label, kbd {
-  -webkit-app-region: no-drag;
 }
 
 ::-webkit-scrollbar {

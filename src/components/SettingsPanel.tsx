@@ -46,11 +46,15 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} />
 
-      <div style={{
-        position: 'relative', width: 460, maxHeight: '85vh', overflowY: 'auto',
-        background: '#141414', border: '1px solid var(--color-border)', borderRadius: 12,
-        padding: '32px 28px', zIndex: 201,
-      }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        onWheel={e => e.stopPropagation()}
+        style={{
+          position: 'relative', width: 460, maxHeight: '85vh', overflowY: 'auto',
+          background: '#141414', border: '1px solid var(--color-border)', borderRadius: 12,
+          padding: '32px 28px', zIndex: 201,
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
             Settings

@@ -24,14 +24,16 @@ function resolveTransition(type: TransitionType): TransitionType {
 export function ArtworkStage({ current, next, transitioning, showLabel, onImageError, onLabelClick, transitionType }: ArtworkStageProps) {
   const activeTransition = useMemo(() => resolveTransition(transitionType), [transitioning, transitionType]);
 
+  const bgArtwork = transitioning && next ? next : current;
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {current && (
+      {bgArtwork && (
         <div
           style={{
             position: 'absolute',
             inset: -40,
-            backgroundImage: `url(${current.imageUrl})`,
+            backgroundImage: `url(${bgArtwork.imageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             filter: 'blur(60px) brightness(0.3) saturate(1.4)',
@@ -71,7 +73,20 @@ export function ArtworkStage({ current, next, transitioning, showLabel, onImageE
 
       {!current && <LoadingIndicator />}
 
-      {current && <MuseumLabel artwork={current} visible={showLabel} onClick={onLabelClick} />}
+      {/* Outgoing label fades out with the outgoing image */}
+      {current && transitioning && (
+        <MuseumLabel artwork={current} visible={false} onClick={onLabelClick} />
+      )}
+
+      {/* Incoming label fades in after the transition */}
+      {next && transitioning && (
+        <MuseumLabel artwork={next} visible={showLabel} onClick={onLabelClick} />
+      )}
+
+      {/* Steady-state label */}
+      {current && !transitioning && (
+        <MuseumLabel artwork={current} visible={showLabel} onClick={onLabelClick} />
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
