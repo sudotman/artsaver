@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Artwork } from './domain/artwork';
-import { getRandomArtwork, startPreloading } from './services/shuffleScheduler';
+import { getRandomArtwork, startPreloading, onFetchStatus, FetchStatus } from './services/shuffleScheduler';
 import { useFavorites } from './services/favoritesStore';
 import { startAmbience, stopAmbience, setVolume } from './services/audioService';
 import { ArtworkStage } from './components/ArtworkStage';
@@ -26,11 +26,13 @@ function AppMain() {
   const [current, setCurrent] = useState<Artwork | null>(null);
   const [next, setNext] = useState<Artwork | null>(null);
   const [transitioning, setTransitioning] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [paused, setPaused] = useState(false);
   const [showTitleBar, setShowTitleBar] = useState(true);
   const [labelVisible, setLabelVisible] = useState(true);
   const [ambientMode, setAmbientMode] = useState(false);
 
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>({ phase: 'idle', message: '' });
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -42,6 +44,7 @@ function AppMain() {
   const hideUITimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef<string[]>([]);
   const backStackRef = useRef<Artwork[]>([]);
+  const forwardStackRef = useRef<Artwork[]>([]);
   const fetchingRef = useRef(false);
 
   const interval = settings.intervalSeconds ?? 60;
@@ -83,31 +86,50 @@ function AppMain() {
   // ─── Core advance (forward) ───
 
   const advance = useCallback(async () => {
-    if (fetchingRef.current) return;
-
     cancelPending();
 
+    if (fetchingRef.current && !transitioning) return;
+
+    let activeCurrent = current;
+
     if (transitioning && next) {
-      if (current) pushToBackStack(current);
       finishTransition(next);
+      activeCurrent = next;
+      fetchingRef.current = false;
+      setFetching(false);
     }
 
+    // If there's a forward stack entry, use it instead of fetching
+    if (forwardStackRef.current.length > 0) {
+      const restored = forwardStackRef.current.shift()!;
+      if (activeCurrent) pushToBackStack(activeCurrent);
+      setCurrent(restored);
+      setNext(null);
+      setTransitioning(false);
+      window.electronAPI?.setCurrentArtwork(`${restored.title} — ${restored.artist}`);
+      return;
+    }
+
+    // Otherwise fetch a fresh artwork
+    forwardStackRef.current = [];
     fetchingRef.current = true;
+    setFetching(true);
 
     try {
       const artwork = await getRandomArtwork(settings, historyRef.current);
+      setFetching(false);
       if (!artwork) { fetchingRef.current = false; return; }
 
-      if (current) pushToBackStack(current);
+      if (activeCurrent) pushToBackStack(activeCurrent);
 
       setNext(artwork);
       setTransitioning(true);
+      fetchingRef.current = false;
 
       transitionTimer.current = setTimeout(() => {
         finishTransition(artwork);
-        fetchingRef.current = false;
       }, 2000);
-    } catch { fetchingRef.current = false; }
+    } catch { fetchingRef.current = false; setFetching(false); }
   }, [settings, current, next, transitioning, pushToBackStack, finishTransition, cancelPending]);
 
   // ─── Go back ───
@@ -117,10 +139,17 @@ function AppMain() {
 
     cancelPending();
 
+    let effectiveCurrent = current;
+
     if (transitioning && next) {
-      setNext(null);
-      setTransitioning(false);
-      fetchingRef.current = false;
+      finishTransition(next);
+      effectiveCurrent = next;
+    }
+
+    // Push current onto forward stack so next brings it back
+    if (effectiveCurrent) {
+      forwardStackRef.current.unshift(effectiveCurrent);
+      if (forwardStackRef.current.length > 30) forwardStackRef.current.pop();
     }
 
     const prev = backStackRef.current.pop()!;
@@ -128,8 +157,13 @@ function AppMain() {
     setNext(null);
     setTransitioning(false);
     fetchingRef.current = false;
+    setFetching(false);
     window.electronAPI?.setCurrentArtwork(`${prev.title} — ${prev.artist}`);
-  }, [cancelPending, transitioning, next]);
+  }, [cancelPending, transitioning, next, current, finishTransition]);
+
+  // ─── Status subscription ───
+
+  useEffect(() => onFetchStatus(setFetchStatus), []);
 
   // ─── Init ───
 
@@ -137,7 +171,7 @@ function AppMain() {
     if (!loaded) return;
     startPreloading(settings, historyRef.current);
     const init = async () => {
-      const artwork = await getRandomArtwork(settings, historyRef.current);
+      const artwork = await getRandomArtwork(settings, historyRef.current, true);
       if (artwork) {
         setCurrent(artwork);
         addToHistory(artwork.id);
@@ -283,8 +317,11 @@ function AppMain() {
           current={current}
           next={next}
           transitioning={transitioning}
+          fetching={fetching}
+          fetchStatus={fetchStatus}
           showLabel={labelVisible}
           onImageError={handleImageError}
+          onRetry={advance}
           transitionType={settings.transitionType}
         />
       )}

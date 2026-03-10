@@ -6,7 +6,7 @@ import { harvardProvider } from '../providers/harvard';
 import { smithsonianProvider } from '../providers/smithsonian';
 import { ngaProvider } from '../providers/nga';
 import { createLocalProvider } from '../providers/localFolder';
-import { canCall } from './rateLimiter';
+import { canCall, resetSource } from './rateLimiter';
 import { preloadImage, negotiateImageSize } from './imageUtils';
 import { AppSettings } from './settingsStore';
 import { getPlaylist } from './playlistService';
@@ -21,10 +21,31 @@ const API_PROVIDERS: Record<string, ArtProvider> = {
 };
 
 const BUFFER_SIZE = 5;
+const FETCH_TIMEOUT_MS = 20_000;
 
 let buffer: Artwork[] = [];
 let filling = false;
 let lastSettingsKey = '';
+
+export type FetchStatus = {
+  phase: 'idle' | 'fetching' | 'preloading' | 'retrying' | 'done' | 'error';
+  message: string;
+  attempt?: number;
+  maxAttempts?: number;
+  providersTried?: string[];
+};
+
+type StatusCallback = (status: FetchStatus) => void;
+let statusCallback: StatusCallback | null = null;
+
+export function onFetchStatus(cb: StatusCallback): () => void {
+  statusCallback = cb;
+  return () => { if (statusCallback === cb) statusCallback = null; };
+}
+
+function emitStatus(status: FetchStatus) {
+  statusCallback?.(status);
+}
 
 function settingsKey(s: AppSettings): string {
   return `${(s.enabledSources ?? []).sort().join(',')}|${s.localFolderPath ?? ''}|${s.activePlaylist ?? ''}|${s.preferredCategory ?? ''}`;
@@ -74,39 +95,91 @@ function applySourceWeighting(providers: ArtProvider[], weights: Record<string, 
   return weighted.sort(() => Math.random() - 0.5);
 }
 
+function timeoutPromise<T>(ms: number, label: string): Promise<T> {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+  );
+}
+
+async function tryOneProvider(
+  provider: ArtProvider,
+  history: string[],
+  options: FetchOptions,
+): Promise<Artwork | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const artwork = await provider.fetchRandom(options);
+      if (!artwork) continue;
+      if (history.includes(artwork.id)) continue;
+      if (buffer.some(b => b.id === artwork.id)) continue;
+
+      const url = negotiateImageSize(artwork.imageUrl, options.maxWidth);
+      artwork.imageUrl = url;
+
+      emitStatus({ phase: 'preloading', message: `Loading image from ${provider.name}...` });
+      const loaded = await preloadImage(url);
+      if (!loaded) continue;
+
+      artwork.timestamp = Date.now();
+      return artwork;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 async function fetchOneValid(
   providers: ArtProvider[],
   history: string[],
   options: FetchOptions,
   weights: Record<string, number>,
+  silent = false,
 ): Promise<Artwork | null> {
-  const ordered = applySourceWeighting(
+  const available = applySourceWeighting(
     providers.filter(p => canCall(p.source)),
     weights,
   );
 
-  for (const provider of ordered) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const artwork = await provider.fetchRandom(options);
-        if (!artwork) continue;
-        if (history.includes(artwork.id)) continue;
-        if (buffer.some(b => b.id === artwork.id)) continue;
+  if (available.length === 0) {
+    if (!silent) emitStatus({ phase: 'error', message: 'All sources are rate-limited. Waiting...' });
+    return null;
+  }
 
-        const url = negotiateImageSize(artwork.imageUrl, options.maxWidth);
-        artwork.imageUrl = url;
+  const tried: string[] = [];
+  if (!silent) {
+    emitStatus({
+      phase: 'fetching',
+      message: `Reaching ${available.length} museum${available.length > 1 ? 's' : ''}...`,
+      providersTried: tried,
+    });
+  }
 
-        const loaded = await preloadImage(url);
-        if (!loaded) continue;
+  const races = available.slice(0, 4).map(async (provider) => {
+    tried.push(provider.name);
+    const result = await tryOneProvider(provider, history, options);
+    if (result) return result;
+    throw new Error('provider failed');
+  });
 
-        artwork.timestamp = Date.now();
-        return artwork;
-      } catch {
-        continue;
+  try {
+    const result = await Promise.race([
+      Promise.any(races),
+      timeoutPromise<Artwork>(FETCH_TIMEOUT_MS, 'fetchOneValid'),
+    ]);
+    return result;
+  } catch {
+    if (!silent && available.length > 4) {
+      const fallback = available.slice(4);
+      for (const provider of fallback) {
+        tried.push(provider.name);
+        if (!silent) emitStatus({ phase: 'fetching', message: `Trying ${provider.name}...`, providersTried: tried });
+        const result = await tryOneProvider(provider, history, options);
+        if (result) return result;
       }
     }
+    return null;
   }
-  return null;
 }
 
 async function fillBuffer(settings: AppSettings, history: string[]): Promise<void> {
@@ -126,7 +199,7 @@ async function fillBuffer(settings: AppSettings, history: string[]): Promise<voi
   if (providers.length === 0) { filling = false; return; }
 
   while (buffer.length < BUFFER_SIZE) {
-    const artwork = await fetchOneValid(providers, history, options, weights);
+    const artwork = await fetchOneValid(providers, history, options, weights, true);
     if (!artwork) break;
     buffer.push(artwork);
   }
@@ -134,24 +207,66 @@ async function fillBuffer(settings: AppSettings, history: string[]): Promise<voi
   filling = false;
 }
 
+const MAX_INIT_RETRIES = 6;
+const RETRY_BASE_MS = 2000;
+
 export async function getRandomArtwork(
   settings: AppSettings,
   history: string[] = [],
+  retryOnEmpty = false,
 ): Promise<Artwork | null> {
   const providers = getProviders(settings);
-  if (providers.length === 0) return null;
+  if (providers.length === 0) {
+    emitStatus({ phase: 'error', message: 'No art sources enabled. Check settings.' });
+    return null;
+  }
 
   if (buffer.length > 0) {
     const artwork = buffer.shift()!;
+    emitStatus({ phase: 'done', message: '' });
     fillBuffer(settings, history);
     return artwork;
   }
 
   const options = buildFetchOptions(settings);
   const weights = (settings.sourceWeights as Record<string, number>) ?? {};
-  const artwork = await fetchOneValid(providers, history, options, weights);
+
+  const maxAttempts = retryOnEmpty ? MAX_INIT_RETRIES : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      const delay = Math.min(RETRY_BASE_MS * Math.pow(1.5, attempt - 2), 10_000);
+      emitStatus({
+        phase: 'retrying',
+        message: `Retry ${attempt}/${maxAttempts} — waiting ${Math.round(delay / 1000)}s...`,
+        attempt,
+        maxAttempts,
+      });
+      providers.forEach(p => resetSource(p.source));
+      await new Promise(r => setTimeout(r, delay));
+    }
+
+    emitStatus({
+      phase: 'fetching',
+      message: attempt === 1 ? 'Curating artwork...' : `Attempt ${attempt}/${maxAttempts}...`,
+      attempt,
+      maxAttempts,
+    });
+
+    const artwork = await fetchOneValid(providers, history, options, weights);
+    if (artwork) {
+      emitStatus({ phase: 'done', message: '' });
+      fillBuffer(settings, history);
+      return artwork;
+    }
+  }
+
+  emitStatus({
+    phase: 'error',
+    message: 'Could not reach any museum. Check your connection and try again.',
+  });
   fillBuffer(settings, history);
-  return artwork;
+  return null;
 }
 
 export function startPreloading(settings: AppSettings, history: string[]): void {
