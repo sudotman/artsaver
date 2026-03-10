@@ -37,10 +37,52 @@ html, body, #root {
   -webkit-app-region: drag;
 }
 
-button, a, input {
+button, a, input, select, label, kbd {
   -webkit-app-region: no-drag;
 }
 
 ::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* High-contrast mode for labels */
+[data-high-contrast="true"] .museum-label {
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+
+[data-high-contrast="true"] .museum-label h1,
+[data-high-contrast="true"] .museum-label p {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
