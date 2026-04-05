@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:collectionapi.metmuseum.org)",
+      "WebFetch(domain:api.artic.edu)",
+      "WebFetch(domain:www.rijksmuseum.nl)",
+      "WebFetch(domain:api.harvardartmuseums.org)",
+      "WebFetch(domain:api.si.edu)",
+      "WebFetch(domain:api.nga.gov)",
+      "WebFetch(domain:openaccess-api.clevelandart.org)",
+      "WebFetch(domain:api.vam.ac.uk)",
+      "WebFetch(domain:search.artsmia.org)",
+      "WebFetch(domain:1.api.artsmia.org)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

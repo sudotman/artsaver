@@ -10,10 +10,8 @@ interface MuseumLabelProps {
 const SOURCE_NAMES: Record<string, string> = {
   met: 'The Metropolitan Museum of Art',
   chicago: 'Art Institute of Chicago',
-  rijks: 'Rijksmuseum',
-  harvard: 'Harvard Art Museums',
-  smithsonian: 'Smithsonian Institution',
-  nga: 'National Gallery of Art',
+  cleveland: 'Cleveland Museum of Art',
+  vam: 'Victoria and Albert Museum',
   local: 'Local Collection',
 };
 

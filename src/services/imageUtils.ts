@@ -9,14 +9,8 @@ export function negotiateImageSize(url: string, maxWidth?: number): string {
     return url.replace(/\/full\/\d+,\//, `/full/${Math.min(width, 1600)},/`);
   }
 
-  if (url.includes('rijksmuseum.nl')) {
-    if (width <= 800) return url.replace(/=s\d+$/, '=s800');
-    return url;
-  }
-
-  if (url.includes('ids.si.edu')) {
-    if (width <= 1200) return url.replace(/max\/\d+,/, `max/${Math.min(width, 1200)},`);
-    return url;
+  if (url.includes('framemark.vam.ac.uk')) {
+    return url.replace(/\/full\/!\d+,\d+\//, `/full/!${Math.min(width, 1200)},${Math.min(width, 1200)}/`);
   }
 
   return url;

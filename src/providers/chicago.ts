@@ -1,6 +1,7 @@
 import { Artwork, ArtProvider, FetchOptions } from '../domain/artwork';
 import { withRateLimit } from '../services/rateLimiter';
 import { negotiateImageSize } from '../services/imageUtils';
+import { apiFetch } from '../services/apiFetch';
 
 const BASE = 'https://api.artic.edu/api/v1';
 const IIIF_BASE = 'https://www.artic.edu/iiif/2';
@@ -22,7 +23,7 @@ export const chicagoProvider: ArtProvider = {
           if (typeMap[options.category]) url += `&query[term][artwork_type_title]=${typeMap[options.category]}`;
         }
 
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const res = await apiFetch(url, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return null;
 
         const data = await res.json();
@@ -48,7 +49,8 @@ export const chicagoProvider: ArtProvider = {
           sourceUrl: `https://www.artic.edu/artworks/${pick.id}`,
           collection: 'Art Institute of Chicago',
         };
-      } catch {
+      } catch (err) {
+        console.error('[CHICAGO] fetch failed:', err);
         return null;
       }
     });

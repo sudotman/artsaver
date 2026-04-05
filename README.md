@@ -6,7 +6,7 @@ an elegant desktop screensaver that endlessly shuffles masterpieces from the wor
 
 ## features
 
-- **6 museum sources** — met, art institute of chicago, rijksmuseum, harvard art museums, smithsonian, national gallery of art
+- **4 museum sources** — met, art institute of chicago, cleveland museum of art, victoria and albert museum
 - **museum-mode display** — full artwork with artist, title, year, medium, and collection label
 - **immersive mode** — hides metadata until hover; auto-hides ui after 3 seconds
 - **curated playlists** — 8 built-in themed collections (dutch golden age, impressionism, ukiyo-e, renaissance masters, etc.) plus custom playlists
@@ -104,7 +104,7 @@ artsaver/
     components/       ArtworkStage, MuseumLabel, TitleBar, Settings, Favorites,
                       History, Playlists, AmbientMode, Shortcuts, Pause, ErrorBoundary
     domain/           Artwork types, playlist types, favorites/history types
-    providers/        MET, Chicago, Rijks, Harvard, Smithsonian, NGA, local folder
+    providers/        MET, Chicago, Cleveland, V&A, local folder
     services/         Shuffle scheduler, settings store, favorites store,
                       playlist service, audio service, rate limiter, image utils
     styles/           Dark gallery theme (Cormorant Garamond + Inter)
@@ -113,14 +113,12 @@ artsaver/
 
 ## art sources
 
-| Source                       | API                                    | License       |
-|------------------------------|----------------------------------------|---------------|
-| Metropolitan Museum of Art   | collectionapi.metmuseum.org            | Public Domain |
-| Art Institute of Chicago     | api.artic.edu                          | Public Domain |
-| Rijksmuseum                  | rijksmuseum.nl/api                     | Public Domain |
-| Harvard Art Museums          | api.harvardartmuseums.org              | Public Domain |
-| Smithsonian Open Access      | api.si.edu/openaccess                  | CC0           |
-| National Gallery of Art      | api.nga.gov                            | Public Domain |
+| Source                       | API                                        | License       |
+|------------------------------|--------------------------------------------|---------------|
+| Metropolitan Museum of Art   | collectionapi.metmuseum.org                | Public Domain |
+| Art Institute of Chicago     | api.artic.edu                              | Public Domain |
+| Cleveland Museum of Art      | openaccess-api.clevelandart.org            | CC0           |
+| Victoria and Albert Museum   | api.vam.ac.uk                              | Public Domain |
 
 ## license
 

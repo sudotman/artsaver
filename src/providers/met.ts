@@ -1,5 +1,6 @@
 import { Artwork, ArtProvider, FetchOptions } from '../domain/artwork';
 import { withRateLimit } from '../services/rateLimiter';
+import { apiFetch } from '../services/apiFetch';
 
 const BASE = 'https://collectionapi.metmuseum.org/public/collection/v1';
 
@@ -11,7 +12,7 @@ async function fetchWithTimeout(url: string, ms = 10000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await apiFetch(url, { signal: controller.signal });
   } finally {
     clearTimeout(id);
   }
@@ -75,7 +76,8 @@ export const metProvider: ArtProvider = {
           };
         }
         return null;
-      } catch {
+      } catch (err) {
+        console.error('[MET] fetch failed:', err);
         return null;
       }
     });

@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+import 'react';
+
+declare module 'react' {
+  interface CSSProperties {
+    WebkitAppRegion?: 'drag' | 'no-drag';
+  }
+}
+
 interface ElectronAPI {
   getSettings: () => Promise<Record<string, unknown>>;
   saveSettings: (data: Record<string, unknown>) => Promise<boolean>;
@@ -29,6 +37,8 @@ interface ElectronAPI {
   onArtworkChanged: (cb: (title: string) => void) => () => void;
 }
 
-interface Window {
-  electronAPI?: ElectronAPI;
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPI;
+  }
 }

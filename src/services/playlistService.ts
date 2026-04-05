@@ -6,7 +6,7 @@ export const BUILT_IN_PLAYLISTS: Playlist[] = [
     name: 'Dutch Golden Age',
     description: 'Rembrandt, Vermeer, and the masters of 17th-century Netherlands',
     filters: {
-      sources: ['rijks', 'met'],
+      sources: ['met', 'cleveland', 'vam'],
       categories: ['painting'],
       centuryRange: [1600, 1700],
       searchTerms: ['Dutch', 'Golden Age'],
@@ -18,7 +18,7 @@ export const BUILT_IN_PLAYLISTS: Playlist[] = [
     name: 'Impressionism',
     description: 'Monet, Renoir, Degas, and the light of modern Paris',
     filters: {
-      sources: ['met', 'chicago'],
+      sources: ['met', 'chicago', 'cleveland'],
       categories: ['painting'],
       centuryRange: [1860, 1910],
       searchTerms: ['Impressionist', 'Impressionism'],
@@ -30,7 +30,7 @@ export const BUILT_IN_PLAYLISTS: Playlist[] = [
     name: 'Japanese Ukiyo-e',
     description: 'Hokusai, Hiroshige, and the floating world',
     filters: {
-      sources: ['met', 'chicago', 'rijks'],
+      sources: ['met', 'chicago', 'cleveland'],
       categories: ['print'],
       searchTerms: ['ukiyo-e', 'Japanese woodblock'],
     },
@@ -41,7 +41,7 @@ export const BUILT_IN_PLAYLISTS: Playlist[] = [
     name: 'Abstract Expressionism',
     description: 'Pollock, de Kooning, Rothko, and the New York School',
     filters: {
-      sources: ['met', 'chicago', 'smithsonian'],
+      sources: ['met', 'chicago', 'cleveland'],
       categories: ['painting'],
       centuryRange: [1940, 1970],
       searchTerms: ['Abstract Expressionism'],
@@ -63,7 +63,7 @@ export const BUILT_IN_PLAYLISTS: Playlist[] = [
     name: 'Renaissance Masters',
     description: 'Leonardo, Michelangelo, Raphael, and the rebirth of art',
     filters: {
-      sources: ['met', 'rijks', 'nga'],
+      sources: ['met', 'cleveland', 'vam'],
       categories: ['painting'],
       centuryRange: [1400, 1600],
       searchTerms: ['Renaissance'],

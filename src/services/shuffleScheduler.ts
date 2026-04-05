@@ -1,10 +1,8 @@
 import { Artwork, ArtProvider, FetchOptions, ArtSource, Playlist } from '../domain/artwork';
 import { metProvider } from '../providers/met';
 import { chicagoProvider } from '../providers/chicago';
-import { rijksProvider } from '../providers/rijks';
-import { harvardProvider } from '../providers/harvard';
-import { smithsonianProvider } from '../providers/smithsonian';
-import { ngaProvider } from '../providers/nga';
+import { clevelandProvider } from '../providers/cleveland';
+import { vamProvider } from '../providers/vam';
 import { createLocalProvider } from '../providers/localFolder';
 import { canCall, resetSource } from './rateLimiter';
 import { preloadImage, negotiateImageSize } from './imageUtils';
@@ -14,10 +12,8 @@ import { getPlaylist } from './playlistService';
 const API_PROVIDERS: Record<string, ArtProvider> = {
   met: metProvider,
   chicago: chicagoProvider,
-  rijks: rijksProvider,
-  harvard: harvardProvider,
-  smithsonian: smithsonianProvider,
-  nga: ngaProvider,
+  cleveland: clevelandProvider,
+  vam: vamProvider,
 };
 
 const BUFFER_SIZE = 5;
@@ -53,7 +49,7 @@ function settingsKey(s: AppSettings): string {
 
 function getProviders(settings: AppSettings): ArtProvider[] {
   const playlist = settings.activePlaylist ? getPlaylist(settings.activePlaylist, settings.customPlaylists as Playlist[] ?? []) : null;
-  const sources: string[] = playlist?.filters.sources ?? settings.enabledSources ?? ['met', 'chicago', 'rijks'];
+  const sources: string[] = playlist?.filters.sources ?? settings.enabledSources ?? ['met', 'chicago', 'cleveland'];
 
   return sources
     .map(id => {

@@ -27,14 +27,14 @@ export interface AppSettings {
 
 export type TransitionType = 'crossfade' | 'kenburns' | 'slide' | 'dissolve' | 'random';
 
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 3;
 
 const DEFAULTS: AppSettings = {
   intervalSeconds: 60,
   immersiveMode: false,
   idleEnabled: false,
   idleThresholdMinutes: 5,
-  enabledSources: ['met', 'chicago', 'rijks'],
+  enabledSources: ['met', 'chicago', 'cleveland'],
   localFolderPath: null,
   transitionType: 'crossfade',
   audioEnabled: false,
@@ -52,6 +52,9 @@ const DEFAULTS: AppSettings = {
   _settingsVersion: SETTINGS_VERSION,
 };
 
+const REMOVED_SOURCES = ['rijks', 'harvard', 'smithsonian', 'nga'];
+const VALID_SOURCES = ['met', 'chicago', 'cleveland', 'vam', 'local'];
+
 function migrateSettings(saved: Record<string, unknown>): AppSettings {
   const version = (saved._settingsVersion as number) ?? 1;
   const merged = { ...DEFAULTS, ...saved, _settingsVersion: SETTINGS_VERSION };
@@ -59,6 +62,30 @@ function migrateSettings(saved: Record<string, unknown>): AppSettings {
   if (version < 2) {
     if (!merged.enabledSources || !Array.isArray(merged.enabledSources)) {
       merged.enabledSources = DEFAULTS.enabledSources;
+    }
+  }
+
+  if (version < 3) {
+    // Replace removed sources with new working sources
+    if (Array.isArray(merged.enabledSources)) {
+      const hadRemoved = merged.enabledSources.some((s: string) => REMOVED_SOURCES.includes(s));
+      merged.enabledSources = merged.enabledSources.filter((s: string) => VALID_SOURCES.includes(s));
+      if (hadRemoved || merged.enabledSources.length === 0) {
+        if (!merged.enabledSources.includes('cleveland')) merged.enabledSources.push('cleveland');
+        if (!merged.enabledSources.includes('vam')) merged.enabledSources.push('vam');
+      }
+    }
+
+    // Clean up source weights for removed sources
+    if (merged.sourceWeights && typeof merged.sourceWeights === 'object') {
+      for (const key of REMOVED_SOURCES) {
+        delete (merged.sourceWeights as Record<string, unknown>)[key];
+      }
+    }
+
+    // Reset active playlist if it references removed sources
+    if (merged.activePlaylist) {
+      merged.activePlaylist = null;
     }
   }
 
@@ -98,10 +125,8 @@ export function useSettings() {
 export const ALL_SOURCES: { id: ArtSource; label: string }[] = [
   { id: 'met', label: 'Metropolitan Museum of Art' },
   { id: 'chicago', label: 'Art Institute of Chicago' },
-  { id: 'rijks', label: 'Rijksmuseum' },
-  { id: 'harvard', label: 'Harvard Art Museums' },
-  { id: 'smithsonian', label: 'Smithsonian Open Access' },
-  { id: 'nga', label: 'National Gallery of Art' },
+  { id: 'cleveland', label: 'Cleveland Museum of Art' },
+  { id: 'vam', label: 'Victoria and Albert Museum' },
 ];
 
 export const ALL_CATEGORIES: { id: string; label: string }[] = [

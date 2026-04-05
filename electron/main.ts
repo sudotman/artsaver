@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, powerMonitor, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, powerMonitor, shell, dialog, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
@@ -94,6 +94,15 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Allow cross-origin requests from file:// in production builds.
+  // Required because the renderer fetches from museum APIs directly.
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders };
+    headers['Access-Control-Allow-Origin'] = ['*'];
+    headers['Access-Control-Allow-Headers'] = ['*'];
+    callback({ responseHeaders: headers });
+  });
 
   mainWindow.once('ready-to-show', () => { mainWindow?.show(); });
   mainWindow.on('closed', () => { mainWindow = null; });

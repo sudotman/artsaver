@@ -12,7 +12,7 @@ export interface Artwork {
   timestamp?: number;
 }
 
-export type ArtSource = 'met' | 'chicago' | 'rijks' | 'harvard' | 'smithsonian' | 'nga' | 'local';
+export type ArtSource = 'met' | 'chicago' | 'cleveland' | 'vam' | 'local';
 
 export type ArtCategory = 'painting' | 'sculpture' | 'photograph' | 'drawing' | 'print' | 'decorative' | 'textile' | 'other';
 
