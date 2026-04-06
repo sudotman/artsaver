@@ -241,8 +241,14 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
               </div>
               {lanIp && (
                 <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 6 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 6px' }}>
+                    Gallery page (open in TV browser):
+                  </p>
+                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>
+                    http://{lanIp}:{settings.tvServerPort}/
+                  </code>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
-                    Set this URL in Projectivy Launcher (Background &gt; URI):
+                    Projectivy Launcher (Background &gt; URI, image only):
                   </p>
                   <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all' }}>
                     http://{lanIp}:{settings.tvServerPort}/current.jpg

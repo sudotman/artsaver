@@ -8,7 +8,7 @@ let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let idleCheckInterval: NodeJS.Timeout | null = null;
-interface ArtworkInfo { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string; }
+interface ArtworkInfo { id: string; title: string; artist: string; year?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; }
 let currentArtworkInfo: ArtworkInfo | null = null;
 let currentArtworkTitle = '';
 let isPaused = false;
@@ -251,11 +251,217 @@ function downloadToBuffer(url: string): Promise<Buffer | null> {
   });
 }
 
+function buildGalleryPage(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ArtSaver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    .slot {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .slot.visible { opacity: 1; }
+
+    .bg-blur {
+      position: absolute;
+      inset: -5%;
+      background-size: cover;
+      background-position: center;
+      filter: blur(60px) brightness(0.25) saturate(0.8);
+      pointer-events: none;
+    }
+
+    .artwork-img {
+      position: relative;
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+      display: block;
+    }
+
+    .label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 80px 48px 36px;
+      background: linear-gradient(to top, rgba(6,5,4,0.92) 0%, rgba(6,5,4,0.7) 40%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .label-title {
+      font-family: 'Cormorant Garamond', 'Georgia', serif;
+      font-size: clamp(22px, 3.2vw, 44px);
+      font-weight: 300;
+      font-style: italic;
+      color: #f0ece4;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+
+    .label-artist {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: clamp(12px, 1.4vw, 18px);
+      font-weight: 400;
+      color: #c9a96e;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .label-meta {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: clamp(11px, 1.1vw, 14px);
+      font-weight: 300;
+      color: rgba(240, 236, 228, 0.45);
+      letter-spacing: 0.06em;
+    }
+
+    .accent-bar {
+      width: 36px;
+      height: 2px;
+      background: #c9a96e;
+      margin-bottom: 14px;
+      opacity: 0.7;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+      transition: opacity 1s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 1px solid rgba(201,169,110,0.2);
+      border-top-color: #c9a96e;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="loading"><div class="spinner"></div></div>
+  <div id="slot-a" class="slot"></div>
+  <div id="slot-b" class="slot"></div>
+
+  <script>
+    var currentId = null;
+    var active = 'a';
+    var firstLoad = true;
+
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function other(name) { return name === 'a' ? 'b' : 'a'; }
+    function slot(name) { return document.getElementById('slot-' + name); }
+
+    function renderSlot(el, info, imgSrc) {
+      var meta = [info.collection, info.year].filter(Boolean).join('  ·  ');
+      el.innerHTML =
+        '<div class="bg-blur" style="background-image:url(\\'' + imgSrc + '\\')"></div>' +
+        '<img class="artwork-img" src="' + imgSrc + '" />' +
+        '<div class="label">' +
+          '<div class="accent-bar"></div>' +
+          '<div class="label-title">' + esc(info.title) + '</div>' +
+          '<div class="label-artist">' + esc(info.artist) + '</div>' +
+          (meta ? '<div class="label-meta">' + esc(meta) + '</div>' : '') +
+        '</div>';
+    }
+
+    function transition(info) {
+      var imgSrc = '/current.jpg?t=' + Date.now();
+      var nextName = other(active);
+      var nextSlot = slot(nextName);
+      var prevSlot = slot(active);
+
+      var img = new Image();
+      img.onload = function() {
+        renderSlot(nextSlot, info, imgSrc);
+        // Force reflow before adding class so transition fires
+        nextSlot.getBoundingClientRect();
+        nextSlot.classList.add('visible');
+
+        if (firstLoad) {
+          document.getElementById('loading').classList.add('hidden');
+          firstLoad = false;
+        } else {
+          setTimeout(function() {
+            prevSlot.classList.remove('visible');
+            setTimeout(function() { prevSlot.innerHTML = ''; }, 2200);
+          }, 100);
+        }
+
+        active = nextName;
+      };
+      img.onerror = function() {
+        // Retry once after a short delay
+        setTimeout(function() { checkForNew(); }, 2000);
+      };
+      img.src = imgSrc;
+    }
+
+    function checkForNew() {
+      fetch('/info.json?t=' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(info) {
+          if (!info || info.id === currentId) return;
+          currentId = info.id;
+          transition(info);
+        })
+        .catch(function() {});
+    }
+
+    checkForNew();
+    setInterval(checkForNew, 3000);
+  </script>
+</body>
+</html>`;
+}
+
 function startTvServer(port: number): void {
   if (tvServer) return;
 
   tvServer = http.createServer((req, res) => {
-    if (req.url === '/current.jpg' || req.url === '/current') {
+    // Strip query string for routing
+    const urlPath = (req.url ?? '/').split('?')[0];
+
+    if (urlPath === '/' || urlPath === '/index.html') {
+      const html = buildGalleryPage();
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(html);
+      return;
+    }
+
+    if (urlPath === '/current.jpg' || urlPath === '/current') {
       if (!currentImageBuffer) {
         res.writeHead(503, { 'Content-Type': 'text/plain' });
         res.end('No artwork loaded yet');
@@ -271,9 +477,17 @@ function startTvServer(port: number): void {
       return;
     }
 
-    if (req.url === '/info.json' || req.url === '/info') {
+    if (urlPath === '/info.json' || urlPath === '/info') {
       const info = currentArtworkInfo
-        ? { title: currentArtworkInfo.title, artist: currentArtworkInfo.artist, source: currentArtworkInfo.source, sourceUrl: currentArtworkInfo.sourceUrl }
+        ? {
+            id: currentArtworkInfo.id,
+            title: currentArtworkInfo.title,
+            artist: currentArtworkInfo.artist,
+            year: currentArtworkInfo.year ?? '',
+            collection: currentArtworkInfo.collection ?? '',
+            source: currentArtworkInfo.source,
+            sourceUrl: currentArtworkInfo.sourceUrl,
+          }
         : null;
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
       res.end(JSON.stringify(info));
@@ -281,7 +495,7 @@ function startTvServer(port: number): void {
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not found. Use /current.jpg or /info.json');
+    res.end('Not found');
   });
 
   tvServer.listen(port, '0.0.0.0', () => {

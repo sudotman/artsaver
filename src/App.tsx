@@ -69,7 +69,7 @@ function AppMain() {
     favStore.addToHistory(artwork);
     setNext(null);
     setTransitioning(false);
-    window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
+    window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, year: artwork.year, collection: artwork.collection, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
 
     if (settings.offlineCacheEnabled) {
       window.electronAPI?.cacheImage(artwork.id, artwork.imageUrl, {
@@ -108,7 +108,7 @@ function AppMain() {
       setCurrent(restored);
       setNext(null);
       setTransitioning(false);
-      window.electronAPI?.setCurrentArtwork({ id: restored.id, title: restored.title, artist: restored.artist, imageUrl: restored.imageUrl, source: restored.source, sourceUrl: restored.sourceUrl });
+      window.electronAPI?.setCurrentArtwork({ id: restored.id, title: restored.title, artist: restored.artist, year: restored.year, collection: restored.collection, imageUrl: restored.imageUrl, source: restored.source, sourceUrl: restored.sourceUrl });
       return;
     }
 
@@ -160,7 +160,7 @@ function AppMain() {
     setTransitioning(false);
     fetchingRef.current = false;
     setFetching(false);
-    window.electronAPI?.setCurrentArtwork({ id: prev.id, title: prev.title, artist: prev.artist, imageUrl: prev.imageUrl, source: prev.source, sourceUrl: prev.sourceUrl });
+    window.electronAPI?.setCurrentArtwork({ id: prev.id, title: prev.title, artist: prev.artist, year: prev.year, collection: prev.collection, imageUrl: prev.imageUrl, source: prev.source, sourceUrl: prev.sourceUrl });
   }, [cancelPending, transitioning, next, current, finishTransition]);
 
   // ─── Status subscription ───
@@ -178,7 +178,7 @@ function AppMain() {
         setCurrent(artwork);
         addToHistory(artwork.id);
         favStore.addToHistory(artwork);
-        window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
+        window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, year: artwork.year, collection: artwork.collection, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
       }
     };
     init();
