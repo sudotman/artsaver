@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- App background -->
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+
+  <!-- Outer picture frame -->
+  <rect x="60" y="60" width="392" height="392" rx="6" fill="none" stroke="#c9a96e" stroke-width="10"/>
+
+  <!-- Inner frame line -->
+  <rect x="80" y="80" width="352" height="352" rx="3" fill="none" stroke="#c9a96e" stroke-width="3" opacity="0.35"/>
+
+  <!-- Corner ornaments -->
+  <rect x="54" y="54" width="18" height="18" fill="#c9a96e"/>
+  <rect x="440" y="54" width="18" height="18" fill="#c9a96e"/>
+  <rect x="54" y="440" width="18" height="18" fill="#c9a96e"/>
+  <rect x="440" y="440" width="18" height="18" fill="#c9a96e"/>
+
+  <!-- Sky: soft dark wash inside frame -->
+  <rect x="80" y="80" width="352" height="352" rx="3" fill="#0c0b0d"/>
+
+  <!-- Subtle warm sky gradient via overlay rect -->
+  <rect x="80" y="80" width="352" height="160" rx="3" fill="#1a1209" opacity="0.6"/>
+
+  <!-- Sun / moon circle — the focal piece -->
+  <circle cx="256" cy="222" r="62" fill="none" stroke="#c9a96e" stroke-width="7"/>
+  <circle cx="256" cy="222" r="46" fill="#c9a96e" opacity="0.18"/>
+  <circle cx="256" cy="222" r="24" fill="#c9a96e" opacity="0.55"/>
+
+  <!-- Horizon -->
+  <line x1="80" y1="318" x2="432" y2="318" stroke="#c9a96e" stroke-width="2" opacity="0.3"/>
+
+  <!-- Mountain silhouettes -->
+  <path d="M80 318 L152 234 L208 272 L272 188 L344 258 L400 220 L432 240 L432 318 Z"
+        fill="#c9a96e" opacity="0.07"/>
+  <path d="M80 318 L152 234 L208 272 L272 188 L344 258 L400 220 L432 240"
+        fill="none" stroke="#c9a96e" stroke-width="2.5" stroke-linejoin="round" opacity="0.28"/>
+
+  <!-- Ground fill -->
+  <rect x="80" y="318" width="352" height="114" fill="#100e08" opacity="0.7"/>
+
+  <!-- Small reflection line on ground -->
+  <line x1="196" y1="344" x2="316" y2="344" stroke="#c9a96e" stroke-width="1.5" opacity="0.15"/>
+</svg>

@@ -1,6 +1,6 @@
 # artsaver
 
-an elegant desktop screensaver that endlessly shuffles masterpieces from the world's greatest museums.
+an elegant desktop screensaver that endlessly shuffles art from the world's museums
 
 ![artsaver](https://raw.githubusercontent.com/sudotman/sudotman/refs/heads/main/demos/artsaver/demo.png)
 
@@ -110,15 +110,15 @@ Default port: **7247**. Configurable in settings.
 **Option B — Overflight plugin** (cycles through up to 10 recent artworks with TV-side transitions):
 > Install the Overflight plugin → add a custom feed → `http://<pc-ip>:7247/overflight.json`
 
-The "Overlay artwork info on served image" toggle in settings controls whether the museum label is composited into the served images. Disabling it serves the raw artwork without any overlay.
+the "Overlay artwork info on served image" toggle in settings controls whether the museum label is composited into the served images. Disabling it serves the raw artwork without any overlay.
 
 ### gallery page
 
-The gallery page (`/`) is a self-updating webpage that mirrors the ArtSaver aesthetic exactly — dark background, blurred ambient fill, Cormorant Garamond typography, warm accent details, and smooth crossfade transitions. Open it in any browser on your TV (TV Bro, Puffin, or a Chromium-based TV browser) for the richest experience.
+the gallery page (`/`) is a self-updating webpage that mirrors the ArtSaver aesthetic exactly — dark background, blurred ambient fill, Cormorant Garamond typography, warm accent details, and smooth crossfade transitions. Open it in any browser on your TV (TV Bro, Puffin, or a Chromium-based TV browser) for the richest experience.
 
 ## diagnostics
 
-Press `D` to open the diagnostics panel, which shows:
+press `D` to open the diagnostics panel, which shows:
 
 - prefetch buffer fill level
 - per-source status (ok / failure count / cooldown timer with seconds remaining)
@@ -138,7 +138,7 @@ built-in curated collections:
 - Photography Icons
 - Sculpture Garden
 
-Select "Shuffle All" to return to random mode across all enabled sources.
+select "Shuffle All" to return to random mode across all enabled sources.
 
 ## architecture
 

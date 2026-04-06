@@ -13,7 +13,9 @@
       "WebFetch(domain:1.api.artsmia.org)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(curl -s \"https://raw.githubusercontent.com/spocky/projectivy-plugin-wallpaper-overflight/refs/heads/main/videos.json\")"
+      "Bash(curl -s \"https://raw.githubusercontent.com/spocky/projectivy-plugin-wallpaper-overflight/refs/heads/main/videos.json\")",
+      "Bash(npm install:*)",
+      "Bash(node scripts/generate-icons.mjs)"
     ]
   }
 }

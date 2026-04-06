@@ -75,6 +75,10 @@ function downloadImage(url: string, dest: string): Promise<boolean> {
 function createWindow(): void {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
+  const iconPath = path.join(__dirname, '../build',
+    process.platform === 'win32' ? 'icon.ico' : process.platform === 'darwin' ? 'icon.icns' : 'icon.png'
+  );
+
   mainWindow = new BrowserWindow({
     width: Math.round(width * 0.85),
     height: Math.round(height * 0.85),
@@ -84,6 +88,7 @@ function createWindow(): void {
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a0a',
     show: false,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -187,7 +192,10 @@ function updateTray(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createEmpty();
+  const trayIconPath = path.join(__dirname, '../build/tray-icon.png');
+  const icon = fs.existsSync(trayIconPath)
+    ? nativeImage.createFromPath(trayIconPath).resize({ width: 16, height: 16 })
+    : nativeImage.createEmpty();
   tray = new Tray(icon);
   tray.setToolTip('ArtSaver');
   tray.setContextMenu(buildTrayMenu());

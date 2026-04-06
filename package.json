@@ -1,6 +1,6 @@
 {
   "name": "artsaver",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "An elegant art screensaver that shuffles world-class artwork endlessly",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -8,9 +8,15 @@
     "build": "tsc && vite build && tsc -p tsconfig.electron.json",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && tsc -p tsconfig.electron.json && electron .\"",
-    "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder"
+    "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
+    "generate-icons": "node scripts/generate-icons.mjs"
   },
-  "keywords": ["art", "screensaver", "museum", "electron"],
+  "keywords": [
+    "art",
+    "screensaver",
+    "museum",
+    "electron"
+  ],
   "license": "MIT",
   "dependencies": {
     "electron-store": "^8.1.0"
@@ -22,8 +28,10 @@
     "concurrently": "^8.2.2",
     "electron": "^28.1.3",
     "electron-builder": "^24.9.1",
+    "png-to-ico": "^3.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "wait-on": "^7.2.0"
