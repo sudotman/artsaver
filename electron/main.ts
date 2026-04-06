@@ -8,6 +8,8 @@ let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let idleCheckInterval: NodeJS.Timeout | null = null;
+interface ArtworkInfo { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string; }
+let currentArtworkInfo: ArtworkInfo | null = null;
 let currentArtworkTitle = '';
 let isPaused = false;
 
@@ -227,6 +229,104 @@ function getScreensaverInfo(): { supported: boolean; registered: boolean } {
   return { supported: process.platform === 'win32', registered: false };
 }
 
+// ─── TV Server (serves current artwork over HTTP for Projectivy etc.) ───
+
+let tvServer: http.Server | null = null;
+let currentImageBuffer: Buffer | null = null;
+
+function downloadToBuffer(url: string): Promise<Buffer | null> {
+  return new Promise(resolve => {
+    const mod = url.startsWith('https') ? https : http;
+    mod.get(url, { timeout: 15000 }, res => {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        const redir = res.headers.location;
+        if (redir) { downloadToBuffer(redir).then(resolve); return; }
+      }
+      if (res.statusCode !== 200) { resolve(null); return; }
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', () => resolve(null));
+    }).on('error', () => resolve(null));
+  });
+}
+
+function startTvServer(port: number): void {
+  if (tvServer) return;
+
+  tvServer = http.createServer((req, res) => {
+    if (req.url === '/current.jpg' || req.url === '/current') {
+      if (!currentImageBuffer) {
+        res.writeHead(503, { 'Content-Type': 'text/plain' });
+        res.end('No artwork loaded yet');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
+      res.end(currentImageBuffer);
+      return;
+    }
+
+    if (req.url === '/info.json' || req.url === '/info') {
+      const info = currentArtworkInfo
+        ? { title: currentArtworkInfo.title, artist: currentArtworkInfo.artist, source: currentArtworkInfo.source, sourceUrl: currentArtworkInfo.sourceUrl }
+        : null;
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify(info));
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not found. Use /current.jpg or /info.json');
+  });
+
+  tvServer.listen(port, '0.0.0.0', () => {
+    console.log(`[TV Server] listening on port ${port}`);
+  });
+
+  tvServer.on('error', (err) => {
+    console.error('[TV Server] failed to start:', err);
+    tvServer = null;
+  });
+}
+
+function stopTvServer(): void {
+  if (tvServer) {
+    tvServer.close();
+    tvServer = null;
+    console.log('[TV Server] stopped');
+  }
+}
+
+async function updateTvImage(imageUrl: string): Promise<void> {
+  if (!tvServer) return;
+  // Skip local file:// URLs — read from disk instead
+  if (imageUrl.startsWith('file://')) {
+    try {
+      const filePath = decodeURIComponent(imageUrl.replace('file://', ''));
+      currentImageBuffer = fs.readFileSync(filePath);
+    } catch { currentImageBuffer = null; }
+    return;
+  }
+  const buf = await downloadToBuffer(imageUrl);
+  if (buf) currentImageBuffer = buf;
+}
+
+function getLanIp(): string {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] ?? []) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
 // ─── IPC handlers ───
 
 ipcMain.handle('get-settings', () => getSettings());
@@ -254,10 +354,12 @@ ipcMain.handle('open-external', (_e, url: string) => shell.openExternal(url));
 
 ipcMain.handle('set-auto-start', (_e, enabled: boolean) => { setAutoStart(enabled); return true; });
 
-ipcMain.handle('set-current-artwork', (_e, title: string) => {
-  currentArtworkTitle = title;
+ipcMain.handle('set-current-artwork', (_e, info: ArtworkInfo) => {
+  currentArtworkInfo = info;
+  currentArtworkTitle = `${info.title} — ${info.artist}`;
   updateTray();
-  if (companionWindow) companionWindow.webContents.send('artwork-changed', title);
+  if (companionWindow) companionWindow.webContents.send('artwork-changed', info);
+  updateTvImage(info.imageUrl);
 });
 
 ipcMain.handle('toggle-companion-widget', (_e, enabled: boolean) => {
@@ -266,6 +368,10 @@ ipcMain.handle('toggle-companion-widget', (_e, enabled: boolean) => {
 });
 
 ipcMain.handle('get-screensaver-info', () => getScreensaverInfo());
+
+ipcMain.handle('start-tv-server', (_e, port: number) => { startTvServer(port); return true; });
+ipcMain.handle('stop-tv-server', () => { stopTvServer(); return true; });
+ipcMain.handle('get-lan-ip', () => getLanIp());
 
 // ─── Offline cache IPC ───
 
@@ -368,6 +474,7 @@ app.whenReady().then(() => {
 
   const settings = getSettings();
   if (settings.companionWidgetEnabled) createCompanionWidget();
+  if (settings.tvServerEnabled) startTvServer((settings.tvServerPort as number) ?? 7247);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

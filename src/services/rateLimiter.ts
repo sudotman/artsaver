@@ -60,3 +60,16 @@ export async function withRateLimit<T>(
 export function resetSource(source: string): void {
   delete state[source];
 }
+
+export function resetAllSources(): void {
+  for (const key of Object.keys(state)) delete state[key];
+}
+
+export function getSourceStates(): Record<string, { failures: number; cooldownUntil: number; lastCall: number }> {
+  const now = Date.now();
+  const result: Record<string, { failures: number; cooldownUntil: number; lastCall: number }> = {};
+  for (const [source, s] of Object.entries(state)) {
+    result[source] = { failures: s.failures, cooldownUntil: Math.max(0, s.cooldownUntil - now), lastCall: s.lastCall };
+  }
+  return result;
+}

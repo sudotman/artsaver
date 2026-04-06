@@ -9,12 +9,19 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProps) {
   const [cacheStats, setCacheStats] = useState<{ count: number; totalSizeBytes: number } | null>(null);
+  const [lanIp, setLanIp] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.electronAPI && settings.offlineCacheEnabled) {
       window.electronAPI.getCacheStats().then(setCacheStats);
     }
   }, [settings.offlineCacheEnabled]);
+
+  useEffect(() => {
+    if (window.electronAPI && settings.tvServerEnabled) {
+      window.electronAPI.getLanIp().then(setLanIp);
+    }
+  }, [settings.tvServerEnabled]);
 
   const handleSelectFolder = async () => {
     if (!window.electronAPI) return;
@@ -209,6 +216,41 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
             onUpdate({ companionWidgetEnabled: v });
             window.electronAPI?.toggleCompanionWidget(v);
           }} label="Companion widget (always-on-top mini display)" />
+        </SettingGroup>
+
+        {/* TV / Network */}
+        <SettingGroup label="Network / TV">
+          <Toggle checked={settings.tvServerEnabled} onChange={v => {
+            onUpdate({ tvServerEnabled: v });
+            if (window.electronAPI) {
+              if (v) window.electronAPI.startTvServer(settings.tvServerPort);
+              else window.electronAPI.stopTvServer();
+            }
+          }} label="Serve artwork over HTTP (for Projectivy / smart TVs)" />
+          {settings.tvServerEnabled && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)' }}>Port:</span>
+                <input type="number" min={1024} max={65535} value={settings.tvServerPort}
+                  onChange={e => onUpdate({ tvServerPort: Number(e.target.value) })}
+                  style={{
+                    width: 80, padding: '4px 8px', background: '#1a1a1a', color: 'var(--color-text)',
+                    border: '1px solid var(--color-border)', borderRadius: 4,
+                    fontFamily: 'var(--font-body)', fontSize: 13,
+                  }} />
+              </div>
+              {lanIp && (
+                <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 6 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
+                    Set this URL in Projectivy Launcher (Background &gt; URI):
+                  </p>
+                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all' }}>
+                    http://{lanIp}:{settings.tvServerPort}/current.jpg
+                  </code>
+                </div>
+              )}
+            </>
+          )}
         </SettingGroup>
 
         {/* Import/export */}

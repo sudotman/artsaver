@@ -11,9 +11,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readLocalFolder: (path: string) => ipcRenderer.invoke('read-local-folder', path),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
-  setCurrentArtwork: (title: string) => ipcRenderer.invoke('set-current-artwork', title),
+  setCurrentArtwork: (info: { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string }) => ipcRenderer.invoke('set-current-artwork', info),
   toggleCompanionWidget: (enabled: boolean) => ipcRenderer.invoke('toggle-companion-widget', enabled),
   getScreensaverInfo: () => ipcRenderer.invoke('get-screensaver-info'),
+  startTvServer: (port: number) => ipcRenderer.invoke('start-tv-server', port),
+  stopTvServer: () => ipcRenderer.invoke('stop-tv-server'),
+  getLanIp: () => ipcRenderer.invoke('get-lan-ip'),
 
   cacheImage: (id: string, url: string, metadata: any) => ipcRenderer.invoke('cache-image', id, url, metadata),
   getCachedArtworks: () => ipcRenderer.invoke('get-cached-artworks'),
@@ -35,8 +38,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('tray-toggle-pause', cb);
     return () => ipcRenderer.removeListener('tray-toggle-pause', cb);
   },
-  onArtworkChanged: (cb: (title: string) => void) => {
-    const handler = (_e: any, title: string) => cb(title);
+  onArtworkChanged: (cb: (info: { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string }) => void) => {
+    const handler = (_e: any, info: any) => cb(info);
     ipcRenderer.on('artwork-changed', handler);
     return () => ipcRenderer.removeListener('artwork-changed', handler);
   },

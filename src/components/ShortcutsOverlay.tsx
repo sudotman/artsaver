@@ -16,6 +16,7 @@ const SHORTCUTS = [
   { keys: ['A'], action: 'Toggle ambient audio' },
   { keys: ['M'], action: 'Toggle ambient mode' },
   { keys: ['I'], action: 'Open artwork in browser' },
+  { keys: ['D'], action: 'Diagnostics panel' },
   { keys: ['?'], action: 'Show / hide shortcuts' },
   { keys: ['Esc'], action: 'Close panel' },
 ];

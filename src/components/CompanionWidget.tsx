@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 
+interface ArtworkInfo { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string; }
+
 export function CompanionWidget() {
-  const [title, setTitle] = useState('ArtSaver');
+  const [info, setInfo] = useState<ArtworkInfo | null>(null);
 
   useEffect(() => {
     if (!window.electronAPI) return;
-    const unsub = window.electronAPI.onArtworkChanged((t: string) => setTitle(t));
+    const unsub = window.electronAPI.onArtworkChanged((i) => setInfo(i));
     return unsub;
   }, []);
+
+  const displayTitle = info ? `${info.title} — ${info.artist}` : 'ArtSaver';
 
   return (
     <div style={{
@@ -28,7 +32,7 @@ export function CompanionWidget() {
           fontFamily: 'var(--font-display)', fontSize: 14, fontStyle: 'italic', color: 'var(--color-text)',
           margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {title}
+          {displayTitle}
         </p>
       </div>
     </div>

@@ -14,6 +14,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { PlaylistPanel } from './components/PlaylistPanel';
 import { AmbientMode } from './components/AmbientMode';
 import { CompanionWidget } from './components/CompanionWidget';
+import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useSettings } from './services/settingsStore';
 
@@ -38,6 +39,7 @@ function AppMain() {
   const [showFavorites, setShowFavorites] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showPlaylists, setShowPlaylists] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,7 +51,7 @@ function AppMain() {
 
   const interval = settings.intervalSeconds ?? 60;
   const immersive = settings.immersiveMode ?? false;
-  const anyPanelOpen = showSettings || showShortcuts || showFavorites || showHistory || showPlaylists;
+  const anyPanelOpen = showSettings || showShortcuts || showFavorites || showHistory || showPlaylists || showDiagnostics;
 
   const addToHistory = useCallback((id: string) => {
     historyRef.current.push(id);
@@ -67,7 +69,7 @@ function AppMain() {
     favStore.addToHistory(artwork);
     setNext(null);
     setTransitioning(false);
-    window.electronAPI?.setCurrentArtwork(`${artwork.title} — ${artwork.artist}`);
+    window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
 
     if (settings.offlineCacheEnabled) {
       window.electronAPI?.cacheImage(artwork.id, artwork.imageUrl, {
@@ -106,7 +108,7 @@ function AppMain() {
       setCurrent(restored);
       setNext(null);
       setTransitioning(false);
-      window.electronAPI?.setCurrentArtwork(`${restored.title} — ${restored.artist}`);
+      window.electronAPI?.setCurrentArtwork({ id: restored.id, title: restored.title, artist: restored.artist, imageUrl: restored.imageUrl, source: restored.source, sourceUrl: restored.sourceUrl });
       return;
     }
 
@@ -158,7 +160,7 @@ function AppMain() {
     setTransitioning(false);
     fetchingRef.current = false;
     setFetching(false);
-    window.electronAPI?.setCurrentArtwork(`${prev.title} — ${prev.artist}`);
+    window.electronAPI?.setCurrentArtwork({ id: prev.id, title: prev.title, artist: prev.artist, imageUrl: prev.imageUrl, source: prev.source, sourceUrl: prev.sourceUrl });
   }, [cancelPending, transitioning, next, current, finishTransition]);
 
   // ─── Status subscription ───
@@ -176,7 +178,7 @@ function AppMain() {
         setCurrent(artwork);
         addToHistory(artwork.id);
         favStore.addToHistory(artwork);
-        window.electronAPI?.setCurrentArtwork(`${artwork.title} — ${artwork.artist}`);
+        window.electronAPI?.setCurrentArtwork({ id: artwork.id, title: artwork.title, artist: artwork.artist, imageUrl: artwork.imageUrl, source: artwork.source, sourceUrl: artwork.sourceUrl });
       }
     };
     init();
@@ -216,6 +218,7 @@ function AppMain() {
         if (showFavorites) { setShowFavorites(false); return; }
         if (showHistory) { setShowHistory(false); return; }
         if (showPlaylists) { setShowPlaylists(false); return; }
+        if (showDiagnostics) { setShowDiagnostics(false); return; }
         return;
       }
 
@@ -247,6 +250,8 @@ function AppMain() {
         case 'i': case 'I':
           if (current?.sourceUrl) window.electronAPI?.openExternal(current.sourceUrl);
           break;
+        case 'd': case 'D':
+          setShowDiagnostics(s => !s); break;
         case '?':
           setShowShortcuts(s => !s); break;
       }
@@ -254,7 +259,7 @@ function AppMain() {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [advance, goBack, anyPanelOpen, showSettings, showShortcuts, showFavorites, showHistory, showPlaylists, current, settings.audioEnabled, favStore, updateSettings]);
+  }, [advance, goBack, anyPanelOpen, showSettings, showShortcuts, showFavorites, showHistory, showPlaylists, showDiagnostics, current, settings.audioEnabled, favStore, updateSettings]);
 
   // ─── Tray IPC ───
 
@@ -363,6 +368,12 @@ function AppMain() {
           onClose={() => setShowHistory(false)}
         />
       )}
+
+      <DiagnosticsPanel
+        visible={showDiagnostics}
+        onClose={() => setShowDiagnostics(false)}
+        onRetryAll={advance}
+      />
 
       {showPlaylists && (
         <PlaylistPanel

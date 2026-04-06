@@ -21,6 +21,8 @@ export interface AppSettings {
   companionWidgetEnabled: boolean;
   highContrastLabels: boolean;
   screenReaderAnnounce: boolean;
+  tvServerEnabled: boolean;
+  tvServerPort: number;
   _settingsVersion: number;
   [key: string]: unknown;
 }
@@ -49,6 +51,8 @@ const DEFAULTS: AppSettings = {
   companionWidgetEnabled: false,
   highContrastLabels: false,
   screenReaderAnnounce: false,
+  tvServerEnabled: false,
+  tvServerPort: 7247,
   _settingsVersion: SETTINGS_VERSION,
 };
 

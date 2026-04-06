@@ -19,9 +19,12 @@ interface ElectronAPI {
   readLocalFolder: (path: string) => Promise<string[]>;
   openExternal: (url: string) => Promise<void>;
   setAutoStart: (enabled: boolean) => Promise<boolean>;
-  setCurrentArtwork: (title: string) => Promise<void>;
+  setCurrentArtwork: (info: { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string }) => Promise<void>;
   toggleCompanionWidget: (enabled: boolean) => Promise<void>;
   getScreensaverInfo: () => Promise<{ supported: boolean; registered: boolean }>;
+  startTvServer: (port: number) => Promise<boolean>;
+  stopTvServer: () => Promise<boolean>;
+  getLanIp: () => Promise<string>;
 
   cacheImage: (id: string, url: string, metadata: any) => Promise<boolean>;
   getCachedArtworks: () => Promise<any[]>;
@@ -34,7 +37,7 @@ interface ElectronAPI {
   onIdleActivated: (cb: () => void) => () => void;
   onTraySkip: (cb: () => void) => () => void;
   onTrayTogglePause: (cb: () => void) => () => void;
-  onArtworkChanged: (cb: (title: string) => void) => () => void;
+  onArtworkChanged: (cb: (info: { id: string; title: string; artist: string; imageUrl: string; source: string; sourceUrl?: string }) => void) => () => void;
 }
 
 declare global {

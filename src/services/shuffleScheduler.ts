@@ -22,6 +22,7 @@ const FETCH_TIMEOUT_MS = 20_000;
 let buffer: Artwork[] = [];
 let filling = false;
 let lastSettingsKey = '';
+const lastErrors: Record<string, string> = {};
 
 export type FetchStatus = {
   phase: 'idle' | 'fetching' | 'preloading' | 'retrying' | 'done' | 'error';
@@ -119,7 +120,9 @@ async function tryOneProvider(
       artwork.timestamp = Date.now();
       return artwork;
     } catch (err) {
-      console.warn(`[${provider.source}] attempt ${attempt + 1} failed:`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[${provider.source}] attempt ${attempt + 1} failed:`, msg);
+      lastErrors[provider.source] = msg;
       continue;
     }
   }
@@ -272,4 +275,8 @@ export function startPreloading(settings: AppSettings, history: string[]): void 
 
 export function getBufferSize(): number {
   return buffer.length;
+}
+
+export function getDiagnostics(): { bufferSize: number; lastErrors: Record<string, string> } {
+  return { bufferSize: buffer.length, lastErrors: { ...lastErrors } };
 }
