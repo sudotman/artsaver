@@ -98,7 +98,14 @@ function createWindow(): void {
   // Allow cross-origin requests from file:// in production builds.
   // Required because the renderer fetches from museum APIs directly.
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    const headers = { ...details.responseHeaders };
+    const headers: Record<string, string[]> = {};
+    // Copy headers, stripping any existing CORS headers (case-insensitive)
+    // to avoid duplicates that cause Chromium to reject the response.
+    for (const [key, value] of Object.entries(details.responseHeaders ?? {})) {
+      const lk = key.toLowerCase();
+      if (lk === 'access-control-allow-origin' || lk === 'access-control-allow-headers') continue;
+      if (value) headers[key] = Array.isArray(value) ? value : [value];
+    }
     headers['Access-Control-Allow-Origin'] = ['*'];
     headers['Access-Control-Allow-Headers'] = ['*'];
     callback({ responseHeaders: headers });

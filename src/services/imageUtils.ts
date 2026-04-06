@@ -16,7 +16,7 @@ export function negotiateImageSize(url: string, maxWidth?: number): string {
   return url;
 }
 
-export function preloadImage(url: string, timeoutMs = 8000): Promise<boolean> {
+export function preloadImage(url: string, timeoutMs = 15000): Promise<boolean> {
   return new Promise(resolve => {
     const img = new Image();
     const timer = setTimeout(() => {

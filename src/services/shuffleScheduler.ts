@@ -118,7 +118,8 @@ async function tryOneProvider(
 
       artwork.timestamp = Date.now();
       return artwork;
-    } catch {
+    } catch (err) {
+      console.warn(`[${provider.source}] attempt ${attempt + 1} failed:`, err);
       continue;
     }
   }
