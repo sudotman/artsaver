@@ -229,6 +229,13 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
           }} label="Serve artwork over HTTP (for Projectivy / smart TVs)" />
           {settings.tvServerEnabled && (
             <>
+              <div style={{ marginTop: 8 }}>
+                <Toggle
+                  checked={settings.tvServerShowLabel}
+                  onChange={v => onUpdate({ tvServerShowLabel: v })}
+                  label="Overlay artwork info on served image"
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)' }}>Port:</span>
                 <input type="number" min={1024} max={65535} value={settings.tvServerPort}
@@ -241,17 +248,23 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
               </div>
               {lanIp && (
                 <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 6 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 6px' }}>
-                    Gallery page (open in TV browser):
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
+                    Overflight plugin JSON (up to 10 recent images):
                   </p>
                   <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>
-                    http://{lanIp}:{settings.tvServerPort}/
+                    http://{lanIp}:{settings.tvServerPort}/overflight.json
                   </code>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
-                    Projectivy Launcher (Background &gt; URI, image only):
+                    Projectivy URI / latest image:
+                  </p>
+                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>
+                    http://{lanIp}:{settings.tvServerPort}/current.jpg
+                  </code>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
+                    Gallery page (open in TV browser):
                   </p>
                   <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all' }}>
-                    http://{lanIp}:{settings.tvServerPort}/current.jpg
+                    http://{lanIp}:{settings.tvServerPort}/
                   </code>
                 </div>
               )}

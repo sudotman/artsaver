@@ -231,24 +231,100 @@ function getScreensaverInfo(): { supported: boolean; registered: boolean } {
 
 // ─── TV Server (serves current artwork over HTTP for Projectivy etc.) ───
 
-let tvServer: http.Server | null = null;
-let currentImageBuffer: Buffer | null = null;
+const SLOT_COUNT = 10;
+interface ImageSlot { buffer: Buffer; info: ArtworkInfo; }
+const imageSlots: (ImageSlot | null)[] = new Array(SLOT_COUNT).fill(null);
+let nextSlotIndex = 0;
+let tvServerActivePort = 7247;
 
-function downloadToBuffer(url: string): Promise<Buffer | null> {
-  return new Promise(resolve => {
-    const mod = url.startsWith('https') ? https : http;
-    mod.get(url, { timeout: 15000 }, res => {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        const redir = res.headers.location;
-        if (redir) { downloadToBuffer(redir).then(resolve); return; }
-      }
-      if (res.statusCode !== 200) { resolve(null); return; }
-      const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', () => resolve(null));
-    }).on('error', () => resolve(null));
+let tvServer: http.Server | null = null;
+let offscreenWin: BrowserWindow | null = null;
+let currentImageBuffer: Buffer | null = null;
+let renderLock: Promise<void> = Promise.resolve();
+
+// Minimal 1920×1080 render template loaded into the offscreen window once.
+const OFFSCREEN_HTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#0a0a0a;font-family:'Inter',sans-serif}
+#bg{position:absolute;inset:-5%;background-size:cover;background-position:center;filter:blur(60px) brightness(0.25) saturate(0.8)}
+#frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#img{max-width:1920px;max-height:1080px;object-fit:contain;display:block}
+#label{position:absolute;bottom:0;left:0;right:0;padding:80px 52px 44px;background:linear-gradient(to top,rgba(6,5,4,0.92) 0%,rgba(6,5,4,0.65) 45%,transparent 100%)}
+#label.off{display:none}
+.bar{width:36px;height:2px;background:#c9a96e;opacity:0.7;margin-bottom:14px}
+#t{font-family:'Cormorant Garamond',Georgia,serif;font-size:44px;font-weight:300;font-style:italic;color:#f0ece4;line-height:1.2;margin-bottom:8px}
+#a{font-family:'Inter',sans-serif;font-size:18px;font-weight:400;color:#c9a96e;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px}
+#m{font-family:'Inter',sans-serif;font-size:14px;font-weight:300;color:rgba(240,236,228,0.45);letter-spacing:0.06em}
+</style></head>
+<body>
+<div id="bg"></div>
+<div id="frame"><img id="img"/></div>
+<div id="label" class="off"><div class="bar"></div><div id="t"></div><div id="a"></div><div id="m"></div></div>
+</body></html>`;
+
+function createOffscreenWin(): void {
+  if (offscreenWin) return;
+  offscreenWin = new BrowserWindow({
+    width: 1920, height: 1080, show: false,
+    webPreferences: { offscreen: true, contextIsolation: true, nodeIntegration: false },
   });
+  offscreenWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(OFFSCREEN_HTML));
+  offscreenWin.on('closed', () => { offscreenWin = null; });
+}
+
+function destroyOffscreenWin(): void {
+  if (offscreenWin) { offscreenWin.close(); offscreenWin = null; }
+}
+
+async function renderOffscreen(info: ArtworkInfo, showLabel: boolean): Promise<void> {
+  if (!tvServer) return;
+  if (!offscreenWin) createOffscreenWin();
+  if (!offscreenWin) return;
+
+  // Wait for the base page to finish loading if it hasn't yet
+  if (offscreenWin.webContents.isLoading()) {
+    await new Promise<void>(r => offscreenWin!.webContents.once('did-finish-load', r));
+  }
+
+  const url   = JSON.stringify(info.imageUrl);
+  const title = JSON.stringify(info.title);
+  const artist = JSON.stringify(info.artist);
+  const meta  = JSON.stringify([info.collection, info.year].filter(Boolean).join('  ·  '));
+  const labelClass = JSON.stringify(showLabel ? '' : 'off');
+
+  try {
+    await offscreenWin.webContents.executeJavaScript(`
+      new Promise(function(resolve, reject) {
+        var timer = setTimeout(function() { reject(new Error('render timeout')); }, 25000);
+        var img = document.getElementById('img');
+        img.onload = async function() {
+          document.getElementById('bg').style.backgroundImage = 'url(' + ${url} + ')';
+          document.getElementById('t').textContent  = ${title};
+          document.getElementById('a').textContent  = ${artist};
+          document.getElementById('m').textContent  = ${meta};
+          document.getElementById('label').className = ${labelClass};
+          await document.fonts.ready;
+          clearTimeout(timer);
+          resolve(true);
+        };
+        img.onerror = function() { clearTimeout(timer); reject(new Error('image load failed')); };
+        img.src = ${url};
+      })
+    `);
+
+    const captured = await offscreenWin.webContents.capturePage();
+    const jpeg = captured.toJPEG(92);
+    // Write into the ring buffer slot
+    const slot = nextSlotIndex;
+    nextSlotIndex = (nextSlotIndex + 1) % SLOT_COUNT;
+    imageSlots[slot] = { buffer: jpeg, info };
+    // /current.jpg always reflects the latest
+    currentImageBuffer = jpeg;
+  } catch (err) {
+    console.warn('[TV offscreen] render failed:', err);
+  }
 }
 
 function buildGalleryPage(): string {
@@ -447,33 +523,60 @@ function buildGalleryPage(): string {
 </html>`;
 }
 
+function buildOverflightJson(): string {
+  const base = `http://${getLanIp()}:${tvServerActivePort}`;
+  const entries = imageSlots
+    .map((slot, i) => slot ? {
+      location: slot.info.collection || slot.info.source,
+      title: slot.info.title,
+      url_img:     `${base}/${i + 1}.jpg`,
+    } : null)
+    .filter(Boolean);
+  return JSON.stringify(entries, null, 2);
+}
+
 function startTvServer(port: number): void {
   if (tvServer) return;
+  tvServerActivePort = port;
+  createOffscreenWin();
+
+  const JPEG_HEADERS = {
+    'Content-Type': 'image/jpeg',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+  };
 
   tvServer = http.createServer((req, res) => {
-    // Strip query string for routing
     const urlPath = (req.url ?? '/').split('?')[0];
 
     if (urlPath === '/' || urlPath === '/index.html') {
-      const html = buildGalleryPage();
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-      res.end(html);
+      res.end(buildGalleryPage());
       return;
     }
 
     if (urlPath === '/current.jpg' || urlPath === '/current') {
-      if (!currentImageBuffer) {
-        res.writeHead(503, { 'Content-Type': 'text/plain' });
-        res.end('No artwork loaded yet');
-        return;
-      }
-      res.writeHead(200, {
-        'Content-Type': 'image/jpeg',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      });
+      if (!currentImageBuffer) { res.writeHead(503); res.end('No artwork loaded yet'); return; }
+      res.writeHead(200, JPEG_HEADERS);
       res.end(currentImageBuffer);
+      return;
+    }
+
+    // Numbered slots: /1.jpg – /10.jpg
+    const slotMatch = urlPath.match(/^\/(\d+)\.jpg$/);
+    if (slotMatch) {
+      const idx = parseInt(slotMatch[1], 10) - 1;
+      const slot = idx >= 0 && idx < SLOT_COUNT ? imageSlots[idx] : null;
+      if (!slot) { res.writeHead(503); res.end('Slot empty'); return; }
+      res.writeHead(200, JPEG_HEADERS);
+      res.end(slot.buffer);
+      return;
+    }
+
+    if (urlPath === '/overflight.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(buildOverflightJson());
       return;
     }
 
@@ -509,25 +612,11 @@ function startTvServer(port: number): void {
 }
 
 function stopTvServer(): void {
-  if (tvServer) {
-    tvServer.close();
-    tvServer = null;
-    console.log('[TV Server] stopped');
-  }
-}
-
-async function updateTvImage(imageUrl: string): Promise<void> {
-  if (!tvServer) return;
-  // Skip local file:// URLs — read from disk instead
-  if (imageUrl.startsWith('file://')) {
-    try {
-      const filePath = decodeURIComponent(imageUrl.replace('file://', ''));
-      currentImageBuffer = fs.readFileSync(filePath);
-    } catch { currentImageBuffer = null; }
-    return;
-  }
-  const buf = await downloadToBuffer(imageUrl);
-  if (buf) currentImageBuffer = buf;
+  if (tvServer) { tvServer.close(); tvServer = null; console.log('[TV Server] stopped'); }
+  destroyOffscreenWin();
+  currentImageBuffer = null;
+  imageSlots.fill(null);
+  nextSlotIndex = 0;
 }
 
 function getLanIp(): string {
@@ -544,7 +633,16 @@ function getLanIp(): string {
 // ─── IPC handlers ───
 
 ipcMain.handle('get-settings', () => getSettings());
-ipcMain.handle('save-settings', (_e, data: Record<string, unknown>) => { saveSettings(data); return true; });
+ipcMain.handle('save-settings', (_e, data: Record<string, unknown>) => {
+  const prev = getSettings();
+  saveSettings(data);
+  // Re-render immediately if the label toggle changed while server is running
+  if (tvServer && currentArtworkInfo && data.tvServerShowLabel !== prev.tvServerShowLabel) {
+    const showLabel = (data.tvServerShowLabel as boolean) ?? true;
+    renderLock = renderLock.then(() => renderOffscreen(currentArtworkInfo!, showLabel));
+  }
+  return true;
+});
 ipcMain.handle('get-idle-time', () => powerMonitor.getSystemIdleTime());
 ipcMain.handle('toggle-fullscreen', () => { if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen()); });
 ipcMain.handle('minimize-window', () => mainWindow?.minimize());
@@ -573,7 +671,10 @@ ipcMain.handle('set-current-artwork', (_e, info: ArtworkInfo) => {
   currentArtworkTitle = `${info.title} — ${info.artist}`;
   updateTray();
   if (companionWindow) companionWindow.webContents.send('artwork-changed', info);
-  updateTvImage(info.imageUrl);
+  if (tvServer) {
+    const showLabel = (getSettings().tvServerShowLabel as boolean) ?? true;
+    renderLock = renderLock.then(() => renderOffscreen(info, showLabel));
+  }
 });
 
 ipcMain.handle('toggle-companion-widget', (_e, enabled: boolean) => {

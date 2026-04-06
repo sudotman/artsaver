@@ -23,6 +23,7 @@ export interface AppSettings {
   screenReaderAnnounce: boolean;
   tvServerEnabled: boolean;
   tvServerPort: number;
+  tvServerShowLabel: boolean;
   _settingsVersion: number;
   [key: string]: unknown;
 }
@@ -53,6 +54,7 @@ const DEFAULTS: AppSettings = {
   screenReaderAnnounce: false,
   tvServerEnabled: false,
   tvServerPort: 7247,
+  tvServerShowLabel: true,
   _settingsVersion: SETTINGS_VERSION,
 };
 
