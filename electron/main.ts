@@ -531,8 +531,13 @@ function buildGalleryPage(): string {
 </html>`;
 }
 
-function buildOverflightJson(): string {
-  const base = `http://${getLanIp()}:${tvServerActivePort}`;
+// Prefer the Host the client actually used to reach us, so slot URLs stay reachable
+// even when getLanIp() guesses an address the client can't route to.
+function buildOverflightJson(hostHeader?: string): string {
+  const host = hostHeader && /^[\w.-]+(:\d+)?$/.test(hostHeader)
+    ? hostHeader
+    : `${getLanIp()}:${tvServerActivePort}`;
+  const base = `http://${host}`;
   const entries = imageSlots
     .map((slot, i) => slot ? {
       location: slot.info.collection || slot.info.source,
@@ -584,7 +589,7 @@ function startTvServer(port: number): void {
 
     if (urlPath === '/overflight.json') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(buildOverflightJson());
+      res.end(buildOverflightJson(req.headers.host));
       return;
     }
 
@@ -627,15 +632,25 @@ function stopTvServer(): void {
   nextSlotIndex = 0;
 }
 
+// Virtual adapters (WSL/Hyper-V, Docker, VMs, VPNs) are often listed first but
+// aren't reachable from other devices on the LAN, so rank them last.
+const VIRTUAL_IFACE = /vethernet|wsl|hyper-v|docker|^br-|^veth|vbox|virtualbox|vmware|vmnet|^utun|tailscale|zerotier/i;
+
 function getLanIp(): string {
   const os = require('os');
   const interfaces = os.networkInterfaces();
+  const rank = (name: string, ip: string) =>
+    (VIRTUAL_IFACE.test(name) ? 10 : 0) +
+    (ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : ip.startsWith('169.254.') ? 3 : 2);
+  let best: { ip: string; score: number } | null = null;
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] ?? []) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      if (iface.family !== 'IPv4' || iface.internal) continue;
+      const score = rank(name, iface.address);
+      if (!best || score < best.score) best = { ip: iface.address, score };
     }
   }
-  return '127.0.0.1';
+  return best?.ip ?? '127.0.0.1';
 }
 
 // ─── IPC handlers ───
