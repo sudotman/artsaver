@@ -9,7 +9,7 @@ let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let idleCheckInterval: NodeJS.Timeout | null = null;
-interface ArtworkInfo { id: string; title: string; artist: string; year?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; }
+interface ArtworkInfo { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; }
 let currentArtworkInfo: ArtworkInfo | null = null;
 let currentArtworkTitle = '';
 let isPaused = false;
@@ -411,6 +411,7 @@ function buildFeedJson(hostHeader?: string): string {
       title: slot.info.title,
       artist: slot.info.artist,
       year: slot.info.year ?? '',
+      medium: slot.info.medium ?? '',
       collection: slot.info.collection ?? '',
       source: slot.info.source,
       sourceUrl: slot.info.sourceUrl,
@@ -461,6 +462,14 @@ function startTvServer(port: number): void {
       // Originals are addressed with ?v=<artwork id>, so a filled slot never reuses a cached URL.
       res.writeHead(200, slotMatch[1] ? { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' } : JPEG_HEADERS);
       res.end(buffer);
+      return;
+    }
+
+    // Vitrine's remote asks for another piece: the same as Skip in the tray.
+    if (urlPath === '/skip' && req.method === 'POST') {
+      mainWindow?.webContents.send('tray-skip');
+      res.writeHead(202, { 'Cache-Control': 'no-cache' });
+      res.end();
       return;
     }
 
