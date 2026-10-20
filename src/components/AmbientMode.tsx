@@ -95,7 +95,7 @@ export function AmbientMode({ active, settings, onSelectArtwork }: AmbientModePr
               }}
                 className="tile-label"
               >
-                <p style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontStyle: 'italic', color: 'var(--color-text)', lineHeight: 1.2, margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 11, color: 'var(--color-text)', lineHeight: 1.2, margin: 0 }}>
                   {tile.title}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--color-text-muted)', margin: 0 }}>

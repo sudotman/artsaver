@@ -24,8 +24,7 @@ export function TitleBar({ visible, onSettings, onFavorites, onHistory, onPlayli
       }}
     >
       <span style={{
-        fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400,
-        letterSpacing: '0.12em', color: 'var(--color-text-muted)', textTransform: 'uppercase',
+        fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--color-text-muted)',
       }}>
         ArtSaver
       </span>

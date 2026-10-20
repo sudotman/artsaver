@@ -25,7 +25,7 @@ export function PlaylistPanel({ activePlaylist, customPlaylists, onSelect, onClo
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-text)' }}>
             Playlists
           </h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 20 }}>&times;</button>
@@ -33,7 +33,7 @@ export function PlaylistPanel({ activePlaylist, customPlaylists, onSelect, onClo
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
           <PlaylistCard
-            name="Shuffle All"
+            name="Shuffle everything"
             description="Random artwork from all enabled sources"
             active={!activePlaylist}
             onClick={() => onSelect(null)}
@@ -70,8 +70,8 @@ function PlaylistCard({ name, description, active, onClick, isCustom }: {
         marginBottom: 8,
         borderRadius: 8,
         cursor: 'pointer',
-        background: active ? 'rgba(201, 169, 110, 0.1)' : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
-        border: active ? '1px solid rgba(201, 169, 110, 0.3)' : '1px solid transparent',
+        background: active ? 'rgba(245, 242, 237, 0.07)' : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
+        border: active ? '1px solid rgba(245, 242, 237, 0.21)' : '1px solid transparent',
         transition: 'all 0.2s ease',
       }}
     >
@@ -82,8 +82,8 @@ function PlaylistCard({ name, description, active, onClick, isCustom }: {
         }}>
           {name}
         </h3>
-        {active && <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Active</span>}
-        {isCustom && <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Custom</span>}
+        {active && <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-accent)' }}>Active</span>}
+        {isCustom && <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-text-muted)' }}>Custom</span>}
       </div>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)', margin: '4px 0 0', lineHeight: 1.4 }}>
         {description}

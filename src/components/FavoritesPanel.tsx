@@ -26,14 +26,14 @@ export function FavoritesPanel({ favorites, onRemove, onSelect, onExportJSON, on
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-text)' }}>
             Favorites ({favorites.length})
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {favorites.length > 0 && (
               <>
-                <SmallBtn onClick={onExportJSON}>Export JSON</SmallBtn>
-                <SmallBtn onClick={onExportHTML}>Export Gallery</SmallBtn>
+                <SmallBtn onClick={onExportJSON}>Export as JSON</SmallBtn>
+                <SmallBtn onClick={onExportHTML}>Export a gallery page</SmallBtn>
               </>
             )}
             <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 20 }}>&times;</button>
@@ -68,7 +68,7 @@ export function FavoritesPanel({ favorites, onRemove, onSelect, onExportJSON, on
                     opacity: hovered === f.artwork.id ? 1 : 0.7,
                     transition: 'opacity 0.2s',
                   }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontStyle: 'italic', color: 'var(--color-text)', margin: 0, lineHeight: 1.2 }}>{f.artwork.title}</p>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: 'var(--color-text)', margin: 0, lineHeight: 1.2 }}>{f.artwork.title}</p>
                     <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-text-muted)', margin: 0 }}>{f.artwork.artist}</p>
                   </div>
                   {hovered === f.artwork.id && (

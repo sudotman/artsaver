@@ -30,7 +30,7 @@ export function HistoryPanel({ history, onClear, onClose }: HistoryPanelProps) {
         }}
       >
         <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-text)' }}>
             History ({history.length})
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -59,7 +59,7 @@ export function HistoryPanel({ history, onClear, onClose }: HistoryPanelProps) {
               }}>
                 <img src={entry.artwork.imageUrl} alt="" style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }} draggable={false} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontStyle: 'italic', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.artwork.title}
                   </p>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>

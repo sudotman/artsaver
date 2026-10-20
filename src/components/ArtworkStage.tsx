@@ -3,6 +3,7 @@ import { Artwork } from '../domain/artwork';
 import { MuseumLabel } from './MuseumLabel';
 import { TransitionType } from '../services/settingsStore';
 import { FetchStatus } from '../services/shuffleScheduler';
+import { paletteOf, wallVars } from '../domain/wall';
 
 interface ArtworkStageProps {
   current: Artwork | null;
@@ -29,23 +30,22 @@ export function ArtworkStage({ current, next, transitioning, fetching, fetchStat
   const activeTransition = useMemo(() => resolveTransition(transitionType), [transitioning, transitionType]);
 
   const bgArtwork = transitioning && next ? next : current;
+  const [wall, setWall] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!bgArtwork) return;
+    let live = true;
+    paletteOf(bgArtwork.imageUrl).then((p) => {
+      if (!live) return;
+      const vars = wallVars(p);
+      setWall(vars);
+      document.documentElement.style.setProperty('--color-accent', vars['--color-accent']);
+    });
+    return () => { live = false; };
+  }, [bgArtwork?.imageUrl]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {bgArtwork && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: -40,
-            backgroundImage: `url(${bgArtwork.imageUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: 'blur(60px) brightness(0.3) saturate(1.4)',
-            transition: `all var(--transition-slow)`,
-            zIndex: 0,
-          }}
-        />
-      )}
+      <div className="wall" style={{ ...(wall as React.CSSProperties), zIndex: 0 }} />
 
       {activeTransition === 'dissolve' && transitioning && (
         <div style={{ position: 'absolute', inset: 0, background: 'var(--color-bg)', zIndex: 1, animation: 'dissolveBlack 2s ease-in-out' }} />
@@ -60,6 +60,7 @@ export function ArtworkStage({ current, next, transitioning, fetching, fetchStat
           onError={onImageError}
           transition={activeTransition}
           isOutgoing={transitioning}
+          labelled={showLabel}
         />
       )}
 
@@ -72,6 +73,7 @@ export function ArtworkStage({ current, next, transitioning, fetching, fetchStat
           onError={onImageError}
           transition={activeTransition}
           isOutgoing={false}
+          labelled={showLabel}
         />
       )}
 
@@ -90,6 +92,8 @@ export function ArtworkStage({ current, next, transitioning, fetching, fetchStat
       {current && !transitioning && (
         <MuseumLabel artwork={current} visible={showLabel} onClick={onLabelClick} />
       )}
+
+      <div className="grain" style={{ zIndex: 5 }} />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -150,8 +154,8 @@ function LoadingIndicator({ status, onRetry }: { status: FetchStatus; onRetry: (
         <div style={{ position: 'relative', width: 40, height: 40 }}>
           <div style={{
             position: 'absolute', inset: 0,
-            border: '1.5px solid var(--color-border)',
-            borderTopColor: 'var(--color-accent)',
+            border: '1px solid var(--color-border)',
+            borderTopColor: 'var(--color-text)',
             borderRadius: '50%',
             animation: 'spin 1.4s linear infinite',
           }} />
@@ -166,12 +170,11 @@ function LoadingIndicator({ status, onRetry }: { status: FetchStatus; onRetry: (
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <span style={{
-          fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 300,
-          color: isError ? 'var(--color-accent)' : 'var(--color-text-muted)',
-          letterSpacing: '0.15em',
-          textAlign: 'center', maxWidth: 340, lineHeight: 1.5,
+          fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 350,
+          color: isError ? 'var(--color-text)' : 'var(--color-text-muted)',
+          textAlign: 'center', maxWidth: 360, lineHeight: 1.4,
         }}>
-          {status.message || 'Curating...'}
+          {status.message || 'Finding something to hang…'}
         </span>
 
         {isRetrying && status.attempt && status.maxAttempts && (
@@ -181,7 +184,7 @@ function LoadingIndicator({ status, onRetry }: { status: FetchStatus; onRetry: (
           }}>
             <div style={{
               height: '100%', borderRadius: 1,
-              background: 'var(--color-accent)',
+              background: 'var(--color-text)',
               width: `${(status.attempt / status.maxAttempts) * 100}%`,
               transition: 'width 0.5s ease',
             }} />
@@ -190,8 +193,8 @@ function LoadingIndicator({ status, onRetry }: { status: FetchStatus; onRetry: (
 
         {showElapsed && !isError && (
           <span style={{
-            fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)',
-            letterSpacing: '0.06em', opacity: 0.6,
+            fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)',
+            opacity: 0.7,
             animation: elapsed >= 10 ? 'pulse 2s ease-in-out infinite' : undefined,
           }}>
             {elapsed}s elapsed
@@ -200,18 +203,7 @@ function LoadingIndicator({ status, onRetry }: { status: FetchStatus; onRetry: (
       </div>
 
       {(isError || elapsed >= 15) && (
-        <button
-          onClick={onRetry}
-          style={{
-            marginTop: 8, padding: '8px 24px', borderRadius: 20,
-            background: 'rgba(201, 169, 110, 0.15)', border: '1px solid var(--color-accent)',
-            color: 'var(--color-accent)', cursor: 'pointer',
-            fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: '0.08em',
-            transition: 'background 0.2s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201, 169, 110, 0.3)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(201, 169, 110, 0.15)')}
-        >
+        <button className="pill" onClick={onRetry} style={{ marginTop: 8 }}>
           Try again
         </button>
       )}
@@ -224,32 +216,32 @@ function FetchingIndicator() {
     <div style={{
       position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)',
       zIndex: 20, display: 'flex', alignItems: 'center', gap: 10,
-      padding: '8px 18px', borderRadius: 20,
-      background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)',
+      padding: '8px 18px', borderRadius: 999,
+      background: 'rgba(11, 10, 10, 0.5)', backdropFilter: 'blur(10px)',
       animation: 'fetchIn 0.3s ease-out',
     }}>
       <div style={{
         width: 14, height: 14,
-        border: '1.5px solid rgba(201, 169, 110, 0.3)',
-        borderTopColor: 'var(--color-accent)',
+        border: '1px solid var(--color-border)',
+        borderTopColor: 'var(--color-text)',
         borderRadius: '50%',
         animation: 'spin 1s linear infinite',
       }} />
       <span style={{
-        fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
-        color: 'var(--color-text-muted)', letterSpacing: '0.06em',
+        fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
+        color: 'var(--color-text-muted)',
       }}>
-        Loading next...
+        Fetching the next piece…
       </span>
     </div>
   );
 }
 
 function ArtworkLayer({
-  artwork, opacity, zIndex, onError, transition, isOutgoing,
+  artwork, opacity, zIndex, onError, transition, isOutgoing, labelled,
 }: {
   artwork: Artwork; opacity: number; zIndex: number; onError: () => void;
-  transition: TransitionType; isOutgoing: boolean;
+  transition: TransitionType; isOutgoing: boolean; labelled: boolean;
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -273,16 +265,18 @@ function ArtworkLayer({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '60px 80px 100px',
+        // Hung a little above centre; with a label up, the piece steps right to leave it a column.
+        padding: labelled ? '9vh 6vw 13vh 28vw' : '9vh 9vw 13vh',
         zIndex,
+        transition: 'padding 1.6s cubic-bezier(0.4, 0, 0.2, 1)',
         ...(transition === 'crossfade' || transition === 'dissolve'
-          ? { opacity, transition: 'opacity var(--transition-slow)' }
+          ? { opacity, transition: 'opacity var(--transition-slow), padding 1.6s cubic-bezier(0.4, 0, 0.2, 1)' }
           : animationStyle()),
       }}
     >
       {!imgLoaded && opacity > 0 && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '1.5px solid var(--color-border)', borderTopColor: 'var(--color-accent)', borderRadius: '50%', animation: 'spin 1.4s linear infinite' }} />
+          <div style={{ width: 28, height: 28, border: '1px solid var(--color-border)', borderTopColor: 'var(--color-text)', borderRadius: '50%', animation: 'spin 1.4s linear infinite' }} />
         </div>
       )}
 
@@ -295,10 +289,10 @@ function ArtworkLayer({
           maxWidth: '100%',
           maxHeight: '100%',
           objectFit: 'contain',
-          borderRadius: 2,
-          boxShadow: '0 8px 60px rgba(0,0,0,0.6), 0 2px 20px rgba(0,0,0,0.4)',
+          borderRadius: 1,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.35), 0 24px 60px rgba(0,0,0,0.45), 0 60px 140px rgba(0,0,0,0.35)',
           opacity: imgLoaded ? 1 : 0,
-          transition: 'opacity 0.5s ease',
+          transition: 'opacity 0.8s ease',
         }}
         draggable={false}
       />

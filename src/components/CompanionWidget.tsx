@@ -25,11 +25,11 @@ export function CompanionWidget() {
         borderRadius: 2, marginRight: 12, flexShrink: 0, opacity: 0.7,
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-text-muted)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-text-muted)', margin: 0 }}>
           Now showing
         </p>
         <p style={{
-          fontFamily: 'var(--font-display)', fontSize: 14, fontStyle: 'italic', color: 'var(--color-text)',
+          fontFamily: 'var(--font-display)', fontSize: 14, color: 'var(--color-text)',
           margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {displayTitle}

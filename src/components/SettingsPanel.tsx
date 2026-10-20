@@ -63,7 +63,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: 'var(--color-text)' }}>
             Settings
           </h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>
@@ -72,14 +72,14 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </div>
 
         {/* Shuffle interval */}
-        <SettingGroup label="Shuffle Interval">
+        <SettingGroup label="Shuffle every">
           <RangeInput min={15} max={300} step={5} value={settings.intervalSeconds}
             onChange={v => onUpdate({ intervalSeconds: v })}
             format={v => v < 60 ? `${v}s` : `${Math.floor(v / 60)}m ${v % 60 ? (v % 60) + 's' : ''}`} />
         </SettingGroup>
 
         {/* Transition */}
-        <SettingGroup label="Transition Style">
+        <SettingGroup label="Transition">
           <Select
             value={settings.transitionType}
             options={TRANSITION_TYPES.map(t => ({ value: t.id, label: t.label }))}
@@ -95,7 +95,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Category preference */}
-        <SettingGroup label="Preferred Category">
+        <SettingGroup label="Prefer">
           <Select
             value={settings.preferredCategory}
             options={ALL_CATEGORIES.map(c => ({ value: c.id, label: c.label }))}
@@ -104,7 +104,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Art sources */}
-        <SettingGroup label="Art Sources">
+        <SettingGroup label="Museums">
           {ALL_SOURCES.map(s => (
             <Toggle key={s.id}
               checked={settings.enabledSources.includes(s.id)}
@@ -117,7 +117,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Source weighting */}
-        <SettingGroup label="Source Weighting">
+        <SettingGroup label="How often each museum appears">
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 8 }}>
             Higher = more frequent. Default is 1 for each.
           </p>
@@ -134,7 +134,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Idle */}
-        <SettingGroup label="Idle Auto-Activation">
+        <SettingGroup label="Start when idle">
           <Toggle checked={settings.idleEnabled} onChange={v => onUpdate({ idleEnabled: v })} label="Auto-show when computer is idle" />
           {settings.idleEnabled && (
             <RangeInput min={1} max={30} step={1} value={settings.idleThresholdMinutes}
@@ -144,7 +144,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Audio */}
-        <SettingGroup label="Ambient Audio">
+        <SettingGroup label="Ambient sound">
           <Toggle checked={settings.audioEnabled} onChange={v => onUpdate({ audioEnabled: v })} label="Soft museum ambience" />
           {settings.audioEnabled && (
             <RangeInput min={0} max={100} step={5} value={Math.round(settings.audioVolume * 100)}
@@ -154,7 +154,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Local folder */}
-        <SettingGroup label="Local Folder">
+        <SettingGroup label="Your own folder">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <ActionBtn onClick={handleSelectFolder}>
               {settings.localFolderPath ? 'Change folder' : 'Select folder'}
@@ -184,7 +184,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* Offline cache */}
-        <SettingGroup label="Offline Cache">
+        <SettingGroup label="Offline cache">
           <Toggle checked={settings.offlineCacheEnabled} onChange={v => onUpdate({ offlineCacheEnabled: v })} label="Cache images for offline use" />
           {settings.offlineCacheEnabled && (
             <>
@@ -219,21 +219,21 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
         </SettingGroup>
 
         {/* TV / Network */}
-        <SettingGroup label="Network / TV">
+        <SettingGroup label="On your TV">
           <Toggle checked={settings.tvServerEnabled} onChange={v => {
             onUpdate({ tvServerEnabled: v });
             if (window.electronAPI) {
               if (v) window.electronAPI.startTvServer(settings.tvServerPort);
               else window.electronAPI.stopTvServer();
             }
-          }} label="Serve artwork over HTTP (for Projectivy / smart TVs)" />
+          }} label="Share the artwork with TVs on this network" />
           {settings.tvServerEnabled && (
             <>
               <div style={{ marginTop: 8 }}>
                 <Toggle
                   checked={settings.tvServerShowLabel}
                   onChange={v => onUpdate({ tvServerShowLabel: v })}
-                  label="Overlay artwork info on served image"
+                  label="Print the caption on composite images"
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
@@ -247,25 +247,19 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
                   }} />
               </div>
               {lanIp && (
-                <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 6 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
-                    Overflight plugin JSON (up to 10 recent images):
-                  </p>
-                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>
-                    http://{lanIp}:{settings.tvServerPort}/overflight.json
-                  </code>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
-                    Projectivy URI / latest image:
-                  </p>
-                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>
-                    http://{lanIp}:{settings.tvServerPort}/current.jpg
-                  </code>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px' }}>
-                    Gallery page (open in TV browser):
-                  </p>
-                  <code style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-accent)', wordBreak: 'break-all' }}>
-                    http://{lanIp}:{settings.tvServerPort}/
-                  </code>
+                <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(245, 242, 237, 0.056)', border: '1px solid rgba(245, 242, 237, 0.14)', borderRadius: 6 }}>
+                  {[
+                    ['Vitrine reads clean originals from', '/feed.json'],
+                    ['Gallery page for a TV browser', '/'],
+                    ['Composites for Overflight or Projectivy', '/overflight.json'],
+                  ].map(([what, path], i) => (
+                    <div key={path} style={{ marginTop: i ? 10 : 0 }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)', margin: '0 0 3px' }}>{what}</p>
+                      <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13, color: 'var(--color-text)', wordBreak: 'break-all', display: 'block' }}>
+                        http://{lanIp}:{settings.tvServerPort}{path}
+                      </code>
+                    </div>
+                  ))}
                 </div>
               )}
             </>
@@ -287,7 +281,7 @@ export function SettingsPanel({ settings, onUpdate, onClose }: SettingsPanelProp
 function SettingGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 24 }}>
-      <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, color: 'var(--color-text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 450, color: 'var(--color-text-muted)', marginBottom: 10 }}>
         {label}
       </label>
       {children}

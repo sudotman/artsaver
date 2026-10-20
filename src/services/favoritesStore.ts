@@ -100,9 +100,9 @@ export function useFavorites() {
   .card { background: #141414; border-radius: 8px; overflow: hidden; }
   .card img { width: 100%; height: 200px; object-fit: cover; }
   .card .info { padding: 16px; }
-  .card h2 { font-size: 16px; font-weight: 400; font-style: italic; margin: 0 0 4px; }
+  .card h2 { font-size: 16px; font-weight: 400; margin: 0 0 4px; }
   .card p { font-size: 13px; color: #9a948c; margin: 0; }
-  .card a { color: #c9a96e; text-decoration: none; font-size: 12px; }
+  .card a { color: #f5f2ed; text-decoration-color: rgba(245,242,237,.4); text-decoration: none; font-size: 12px; }
 </style></head><body>
 <h1>ArtSaver Favorites</h1>
 <div class="grid">

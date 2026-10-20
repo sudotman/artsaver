@@ -50,8 +50,6 @@ export function PauseIndicator({ paused }: PauseIndicatorProps) {
         fontSize: 12,
         fontWeight: 400,
         color: 'var(--color-text)',
-        letterSpacing: '0.15em',
-        textTransform: 'uppercase',
       }}>
         {paused ? 'Paused' : 'Playing'}
       </span>

@@ -44,7 +44,7 @@ export function DiagnosticsPanel({ visible, onClose, onRetryAll }: DiagnosticsPa
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, letterSpacing: '0.08em', color: 'var(--color-text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-text)' }}>
             Diagnostics
           </h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>
@@ -53,7 +53,7 @@ export function DiagnosticsPanel({ visible, onClose, onRetryAll }: DiagnosticsPa
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)' }}>
             Prefetch Buffer
           </span>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-text)', margin: '4px 0 0' }}>
@@ -62,7 +62,7 @@ export function DiagnosticsPanel({ visible, onClose, onRetryAll }: DiagnosticsPa
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-text-muted)' }}>
             Source Status
           </span>
           <div style={{ marginTop: 8 }}>
@@ -103,10 +103,10 @@ export function DiagnosticsPanel({ visible, onClose, onRetryAll }: DiagnosticsPa
         </div>
 
         <button onClick={handleRetryAll} style={{
-          width: '100%', padding: '10px 16px', background: 'rgba(201,169,110,0.12)',
-          border: '1px solid rgba(201,169,110,0.3)', borderRadius: 6,
+          width: '100%', padding: '10px 16px', background: 'rgba(245, 242, 237, 0.084)',
+          border: '1px solid rgba(245, 242, 237, 0.21)', borderRadius: 6,
           color: 'var(--color-accent)', fontFamily: 'var(--font-body)', fontSize: 13,
-          cursor: 'pointer', letterSpacing: '0.04em',
+          cursor: 'pointer',
         }}>
           Reset all sources &amp; retry
         </button>

@@ -12,9 +12,12 @@ const SOURCE_NAMES: Record<string, string> = {
   chicago: 'Art Institute of Chicago',
   cleveland: 'Cleveland Museum of Art',
   vam: 'Victoria and Albert Museum',
-  local: 'Local Collection',
+  local: 'Your own collection',
 };
 
+const legible = '0 1px 22px rgba(0, 0, 0, 0.5)';
+
+/** A wall label: a narrow column beside the piece, sentence case, no panel behind it. */
 export function MuseumLabel({ artwork, visible, onClick }: MuseumLabelProps) {
   const handleClick = () => {
     if (onClick) onClick();
@@ -24,66 +27,60 @@ export function MuseumLabel({ artwork, visible, onClick }: MuseumLabelProps) {
   };
 
   const isClickable = !!artwork.sourceUrl || !!onClick;
+  const byline = [artwork.artist, artwork.year].filter(Boolean).join(', ');
 
   return (
     <div
+      className="museum-label"
       role="region"
       aria-label={`Now showing: ${artwork.title} by ${artwork.artist}`}
       style={{
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '80px 48px 36px',
-        background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
+        left: '4.5vw',
+        bottom: '7vh',
+        width: 'clamp(200px, 21vw, 360px)',
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(6px)',
+        transform: visible ? 'translateY(0)' : 'translateY(10px)',
         transition: visible
-          ? 'opacity 0.45s ease-out, transform 0.45s ease-out'
-          : 'opacity 0.15s ease-in, transform 0.15s ease-in',
+          ? 'opacity 1.2s ease-out 0.4s, transform 1.2s ease-out 0.4s'
+          : 'opacity 0.4s ease-in, transform 0.4s ease-in',
         zIndex: 10,
         pointerEvents: visible ? 'auto' : 'none',
         cursor: isClickable ? 'pointer' : 'default',
+        textShadow: legible,
       }}
       onClick={handleClick}
     >
-      <div style={{ maxWidth: 600 }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
-          fontStyle: 'italic', color: 'var(--color-text)', lineHeight: 1.3, marginBottom: 6,
-        }}>
-          {artwork.title}
-        </h1>
+      <h1 style={{
+        fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 1.9vw, 34px)', fontWeight: 400,
+        color: 'var(--color-text)', lineHeight: 1.15, marginBottom: 10,
+      }}>
+        {artwork.title}
+      </h1>
 
-        <p style={{
-          fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500,
-          color: 'var(--color-text)', letterSpacing: '0.02em', marginBottom: 4,
-        }}>
-          {artwork.artist}
-          {artwork.year && <span style={{ color: 'var(--color-text-muted)', fontWeight: 300 }}>, {artwork.year}</span>}
+      {byline && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'clamp(12px, 0.95vw, 16px)', fontWeight: 400, color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
+          {byline}
         </p>
+      )}
 
-        {artwork.medium && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--color-text-muted)', marginBottom: 8 }}>
-            {artwork.medium}
-          </p>
+      {artwork.medium && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'clamp(11px, 0.85vw, 14px)', fontWeight: 300, color: 'rgba(245, 242, 237, 0.42)', marginTop: 4, lineHeight: 1.4 }}>
+          {artwork.medium}
+        </p>
+      )}
+
+      <p style={{
+        display: 'flex', alignItems: 'center', gap: 6, marginTop: 4,
+        fontFamily: 'var(--font-body)', fontSize: 'clamp(11px, 0.85vw, 14px)', fontWeight: 300, color: 'rgba(245, 242, 237, 0.42)',
+      }}>
+        {artwork.collection || SOURCE_NAMES[artwork.source] || artwork.source}
+        {artwork.sourceUrl && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" style={{ opacity: 0.7 }}>
+            <path d="M7 17L17 7M9 7h8v8" />
+          </svg>
         )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <div style={{ width: 24, height: 1, background: 'var(--color-accent)', opacity: 0.5 }} />
-          <span style={{
-            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
-            color: 'var(--color-text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase',
-          }}>
-            {artwork.collection || SOURCE_NAMES[artwork.source] || artwork.source}
-          </span>
-          {artwork.sourceUrl && (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" style={{ opacity: 0.5, marginLeft: 4 }}>
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
-            </svg>
-          )}
-        </div>
-      </div>
+      </p>
     </div>
   );
 }
