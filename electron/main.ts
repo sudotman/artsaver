@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
 import * as http from 'http';
+import { loadOriginal, fillsScreen, roomHtml, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
 
 let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
@@ -240,7 +241,8 @@ function getScreensaverInfo(): { supported: boolean; registered: boolean } {
 // ─── TV Server (serves current artwork over HTTP for Projectivy etc.) ───
 
 const SLOT_COUNT = 10;
-interface ImageSlot { buffer: Buffer; info: ArtworkInfo; }
+// Each slot keeps the clean original (for /feed.json) and, for older clients, a 1920×1080 composite.
+interface ImageSlot { info: ArtworkInfo; at: number; composite?: Buffer; original?: Original; }
 const imageSlots: (ImageSlot | null)[] = new Array(SLOT_COUNT).fill(null);
 let nextSlotIndex = 0;
 let tvServerActivePort = 7247;
@@ -250,27 +252,11 @@ let offscreenWin: BrowserWindow | null = null;
 let currentImageBuffer: Buffer | null = null;
 let renderLock: Promise<void> = Promise.resolve();
 
-// Minimal 1920×1080 render template loaded into the offscreen window once.
+// The composite template: the same wall and caption as the gallery page, at 1920×1080.
 const OFFSCREEN_HTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:1920px;height:1080px;overflow:hidden;background:#0a0a0a;font-family:'Inter',sans-serif}
-#bg{position:absolute;inset:-5%;background-size:cover;background-position:center;filter:blur(60px) brightness(0.25) saturate(0.8)}
-#frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-#img{max-width:1920px;max-height:1080px;object-fit:contain;display:block}
-#label{position:absolute;bottom:0;left:0;right:0;padding:80px 52px 44px;background:linear-gradient(to top,rgba(6,5,4,0.92) 0%,rgba(6,5,4,0.65) 45%,transparent 100%)}
-#label.off{display:none}
-.bar{width:36px;height:2px;background:#c9a96e;opacity:0.7;margin-bottom:14px}
-#t{font-family:'Cormorant Garamond',Georgia,serif;font-size:44px;font-weight:300;font-style:italic;color:#f0ece4;line-height:1.2;margin-bottom:8px}
-#a{font-family:'Inter',sans-serif;font-size:18px;font-weight:400;color:#c9a96e;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px}
-#m{font-family:'Inter',sans-serif;font-size:14px;font-weight:300;color:rgba(240,236,228,0.45);letter-spacing:0.06em}
-</style></head>
-<body>
-<div id="bg"></div>
-<div id="frame"><img id="img"/></div>
-<div id="label" class="off"><div class="bar"></div><div id="t"></div><div id="a"></div><div id="m"></div></div>
-</body></html>`;
+<link href="${WALL_FONTS}" rel="stylesheet">
+<style>${WALL_CSS} html,body{width:1920px;height:1080px}</style></head>
+<body><div id="stage"></div></body></html>`;
 
 function createOffscreenWin(): void {
   if (offscreenWin) return;
@@ -288,53 +274,70 @@ function destroyOffscreenWin(): void {
 
 async function renderOffscreen(info: ArtworkInfo, showLabel: boolean): Promise<void> {
   if (!tvServer) return;
-  if (!offscreenWin) createOffscreenWin();
-  if (!offscreenWin) return;
+  const original = await loadOriginal(info.imageUrl).catch((err) => {
+    console.warn('[TV] original image failed:', err);
+    return null;
+  });
+  const composite = await renderComposite(info, original, showLabel);
+  if (!original && !composite) return;
+  const slot = nextSlotIndex;
+  nextSlotIndex = (nextSlotIndex + 1) % SLOT_COUNT;
+  imageSlots[slot] = { info, at: Date.now(), composite: composite ?? undefined, original: original ?? undefined };
+  // /current.jpg always reflects the latest
+  if (composite) currentImageBuffer = composite;
+}
 
+async function renderComposite(info: ArtworkInfo, original: Original | null, showLabel: boolean): Promise<Buffer | null> {
+  if (!offscreenWin) createOffscreenWin();
+  if (!offscreenWin) return null;
   // Wait for the base page to finish loading if it hasn't yet
   if (offscreenWin.webContents.isLoading()) {
     await new Promise<void>(r => offscreenWin!.webContents.once('did-finish-load', r));
   }
-
-  const url   = JSON.stringify(info.imageUrl);
-  const title = JSON.stringify(info.title);
-  const artist = JSON.stringify(info.artist);
-  const meta  = JSON.stringify([info.collection, info.year].filter(Boolean).join('  ·  '));
-  const labelClass = JSON.stringify(showLabel ? '' : 'off');
-
+  const src = original ? `data:image/jpeg;base64,${original.buffer.toString('base64')}` : info.imageUrl;
+  const bleed = original ? fillsScreen(original.width, original.height) : false;
+  const html = roomHtml(info, src, original?.palette ?? [], bleed, showLabel);
   try {
     await offscreenWin.webContents.executeJavaScript(`
       new Promise(function(resolve, reject) {
         var timer = setTimeout(function() { reject(new Error('render timeout')); }, 25000);
-        var img = document.getElementById('img');
-        img.onload = async function() {
-          document.getElementById('bg').style.backgroundImage = 'url(' + ${url} + ')';
-          document.getElementById('t').textContent  = ${title};
-          document.getElementById('a').textContent  = ${artist};
-          document.getElementById('m').textContent  = ${meta};
-          document.getElementById('label').className = ${labelClass};
-          await document.fonts.ready;
-          clearTimeout(timer);
-          resolve(true);
-        };
-        img.onerror = function() { clearTimeout(timer); reject(new Error('image load failed')); };
-        img.src = ${url};
+        var stage = document.getElementById('stage');
+        stage.innerHTML = ${JSON.stringify(html)};
+        var img = stage.querySelector('img');
+        function done() {
+          document.fonts.ready.then(function() {
+            clearTimeout(timer);
+            requestAnimationFrame(function() { requestAnimationFrame(function() { resolve(true); }); });
+          });
+        }
+        if (img.complete && img.naturalWidth) done();
+        else {
+          img.onload = done;
+          img.onerror = function() { clearTimeout(timer); reject(new Error('image load failed')); };
+        }
       })
     `);
-
     const captured = await offscreenWin.webContents.capturePage();
-    const jpeg = captured.toJPEG(92);
-    // Write into the ring buffer slot
-    const slot = nextSlotIndex;
-    nextSlotIndex = (nextSlotIndex + 1) % SLOT_COUNT;
-    imageSlots[slot] = { buffer: jpeg, info };
-    // /current.jpg always reflects the latest
-    currentImageBuffer = jpeg;
+    return captured.toJPEG(92);
   } catch (err) {
     console.warn('[TV offscreen] render failed:', err);
+    return null;
   }
 }
 
+/** Newest first, with each slot's 1-based number as served under /N.jpg and /art/N.jpg. */
+function newestSlots(): { slot: ImageSlot; n: number }[] {
+  return imageSlots
+    .map((slot, i) => (slot ? { slot, n: i + 1 } : null))
+    .filter((x): x is { slot: ImageSlot; n: number } => x !== null)
+    .sort((a, b) => b.slot.at - a.slot.at);
+}
+
+function showLabelSetting(): boolean {
+  return (getSettings().tvServerShowLabel as boolean) ?? true;
+}
+
+/** The browser gallery: the newest piece on its wall, crossfading when a new one arrives. */
 function buildGalleryPage(): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -342,190 +345,36 @@ function buildGalleryPage(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ArtSaver</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: #0a0a0a;
-      width: 100vw; height: 100vh;
-      overflow: hidden;
-      font-family: 'Inter', system-ui, sans-serif;
-    }
-
-    .slot {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .slot.visible { opacity: 1; }
-
-    .bg-blur {
-      position: absolute;
-      inset: -5%;
-      background-size: cover;
-      background-position: center;
-      filter: blur(60px) brightness(0.25) saturate(0.8);
-      pointer-events: none;
-    }
-
-    .artwork-img {
-      position: relative;
-      max-width: 100vw;
-      max-height: 100vh;
-      object-fit: contain;
-      display: block;
-    }
-
-    .label {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 80px 48px 36px;
-      background: linear-gradient(to top, rgba(6,5,4,0.92) 0%, rgba(6,5,4,0.7) 40%, transparent 100%);
-      pointer-events: none;
-    }
-
-    .label-title {
-      font-family: 'Cormorant Garamond', 'Georgia', serif;
-      font-size: clamp(22px, 3.2vw, 44px);
-      font-weight: 300;
-      font-style: italic;
-      color: #f0ece4;
-      line-height: 1.2;
-      margin-bottom: 8px;
-      letter-spacing: 0.01em;
-    }
-
-    .label-artist {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: clamp(12px, 1.4vw, 18px);
-      font-weight: 400;
-      color: #c9a96e;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-    }
-
-    .label-meta {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: clamp(11px, 1.1vw, 14px);
-      font-weight: 300;
-      color: rgba(240, 236, 228, 0.45);
-      letter-spacing: 0.06em;
-    }
-
-    .accent-bar {
-      width: 36px;
-      height: 2px;
-      background: #c9a96e;
-      margin-bottom: 14px;
-      opacity: 0.7;
-    }
-
-    #loading {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a0a0a;
-      transition: opacity 1s ease;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-
-    .spinner {
-      width: 32px; height: 32px;
-      border: 1px solid rgba(201,169,110,0.2);
-      border-top-color: #c9a96e;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  <link href="${WALL_FONTS}" rel="stylesheet">
+  <style>${WALL_CSS} .room{opacity:0} .room.on{opacity:1}</style>
 </head>
 <body>
-  <div id="loading"><div class="spinner"></div></div>
-  <div id="slot-a" class="slot"></div>
-  <div id="slot-b" class="slot"></div>
-
   <script>
-    var currentId = null;
-    var active = 'a';
-    var firstLoad = true;
-
-    function esc(s) {
-      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function other(name) { return name === 'a' ? 'b' : 'a'; }
-    function slot(name) { return document.getElementById('slot-' + name); }
-
-    function renderSlot(el, info, imgSrc) {
-      var meta = [info.collection, info.year].filter(Boolean).join('  ·  ');
-      el.innerHTML =
-        '<div class="bg-blur" style="background-image:url(\\'' + imgSrc + '\\')"></div>' +
-        '<img class="artwork-img" src="' + imgSrc + '" />' +
-        '<div class="label">' +
-          '<div class="accent-bar"></div>' +
-          '<div class="label-title">' + esc(info.title) + '</div>' +
-          '<div class="label-artist">' + esc(info.artist) + '</div>' +
-          (meta ? '<div class="label-meta">' + esc(meta) + '</div>' : '') +
-        '</div>';
-    }
-
-    function transition(info) {
-      var imgSrc = '/current.jpg?t=' + Date.now();
-      var nextName = other(active);
-      var nextSlot = slot(nextName);
-      var prevSlot = slot(active);
-
-      var img = new Image();
+    var current = null;
+    function show(next) {
+      var holder = document.createElement('div');
+      holder.innerHTML = next.html;
+      var room = holder.firstElementChild;
+      var img = room.querySelector('img');
       img.onload = function() {
-        renderSlot(nextSlot, info, imgSrc);
-        // Force reflow before adding class so transition fires
-        nextSlot.getBoundingClientRect();
-        nextSlot.classList.add('visible');
-
-        if (firstLoad) {
-          document.getElementById('loading').classList.add('hidden');
-          firstLoad = false;
-        } else {
-          setTimeout(function() {
-            prevSlot.classList.remove('visible');
-            setTimeout(function() { prevSlot.innerHTML = ''; }, 2200);
-          }, 100);
-        }
-
-        active = nextName;
+        document.body.appendChild(room);
+        room.getBoundingClientRect();
+        room.classList.add('on');
+        document.querySelectorAll('.room').forEach(function(r) {
+          if (r === room) return;
+          r.classList.remove('on');
+          setTimeout(function() { r.remove(); }, 2600);
+        });
       };
-      img.onerror = function() {
-        // Retry once after a short delay
-        setTimeout(function() { checkForNew(); }, 2000);
-      };
-      img.src = imgSrc;
     }
-
-    function checkForNew() {
-      fetch('/info.json?t=' + Date.now())
-        .then(function(r) { return r.json(); })
-        .then(function(info) {
-          if (!info || info.id === currentId) return;
-          currentId = info.id;
-          transition(info);
-        })
+    function poll() {
+      fetch('/room.json?t=' + Date.now())
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(next) { if (next && next.id !== current) { current = next.id; show(next); } })
         .catch(function() {});
     }
-
-    checkForNew();
-    setInterval(checkForNew, 3000);
+    poll();
+    setInterval(poll, 4000);
   </script>
 </body>
 </html>`;
@@ -533,19 +382,45 @@ function buildGalleryPage(): string {
 
 // Prefer the Host the client actually used to reach us, so slot URLs stay reachable
 // even when getLanIp() guesses an address the client can't route to.
-function buildOverflightJson(hostHeader?: string): string {
+function baseUrl(hostHeader?: string): string {
   const host = hostHeader && /^[\w.-]+(:\d+)?$/.test(hostHeader)
     ? hostHeader
     : `${getLanIp()}:${tvServerActivePort}`;
-  const base = `http://${host}`;
+  return `http://${host}`;
+}
+
+function buildOverflightJson(hostHeader?: string): string {
+  const base = baseUrl(hostHeader);
   const entries = imageSlots
-    .map((slot, i) => slot ? {
+    .map((slot, i) => slot?.composite ? {
       location: slot.info.collection || slot.info.source,
       title: slot.info.title,
       url_img:     `${base}/${i + 1}.jpg`,
     } : null)
     .filter(Boolean);
   return JSON.stringify(entries, null, 2);
+}
+
+/** Clean originals with their metadata and colours, newest first. Vitrine draws its own walls. */
+function buildFeedJson(hostHeader?: string): string {
+  const base = baseUrl(hostHeader);
+  const pieces = newestSlots()
+    .filter(({ slot }) => slot.original)
+    .map(({ slot, n }) => ({
+      id: slot.info.id,
+      title: slot.info.title,
+      artist: slot.info.artist,
+      year: slot.info.year ?? '',
+      collection: slot.info.collection ?? '',
+      source: slot.info.source,
+      sourceUrl: slot.info.sourceUrl,
+      image: `${base}/art/${n}.jpg?v=${encodeURIComponent(slot.info.id)}`,
+      width: slot.original!.width,
+      height: slot.original!.height,
+      palette: slot.original!.palette,
+      fillsScreen: fillsScreen(slot.original!.width, slot.original!.height),
+    }));
+  return JSON.stringify({ version: 2, pieces });
 }
 
 function startTvServer(port: number): void {
@@ -576,14 +451,35 @@ function startTvServer(port: number): void {
       return;
     }
 
-    // Numbered slots: /1.jpg – /10.jpg
-    const slotMatch = urlPath.match(/^\/(\d+)\.jpg$/);
+    // Numbered slots: /1.jpg – /10.jpg (composites) and /art/1.jpg – /art/10.jpg (originals)
+    const slotMatch = urlPath.match(/^\/(art\/)?(\d+)\.jpg$/);
     if (slotMatch) {
-      const idx = parseInt(slotMatch[1], 10) - 1;
+      const idx = parseInt(slotMatch[2], 10) - 1;
       const slot = idx >= 0 && idx < SLOT_COUNT ? imageSlots[idx] : null;
-      if (!slot) { res.writeHead(503); res.end('Slot empty'); return; }
-      res.writeHead(200, JPEG_HEADERS);
-      res.end(slot.buffer);
+      const buffer = slotMatch[1] ? slot?.original?.buffer : slot?.composite;
+      if (!buffer) { res.writeHead(503); res.end('Slot empty'); return; }
+      // Originals are addressed with ?v=<artwork id>, so a filled slot never reuses a cached URL.
+      res.writeHead(200, slotMatch[1] ? { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' } : JPEG_HEADERS);
+      res.end(buffer);
+      return;
+    }
+
+    if (urlPath === '/feed.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(buildFeedJson(req.headers.host));
+      return;
+    }
+
+    if (urlPath === '/room.json') {
+      const newest = newestSlots()[0];
+      if (!newest) { res.writeHead(503); res.end('No artwork loaded yet'); return; }
+      const { slot, n } = newest;
+      const html = slot.original
+        ? roomHtml(slot.info, `/art/${n}.jpg?v=${encodeURIComponent(slot.info.id)}`, slot.original.palette,
+          fillsScreen(slot.original.width, slot.original.height), showLabelSetting())
+        : roomHtml({}, `/${n}.jpg`, [], true, false);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify({ id: `${slot.info.id}@${slot.at}`, html }));
       return;
     }
 
@@ -695,7 +591,7 @@ ipcMain.handle('set-current-artwork', (_e, info: ArtworkInfo) => {
   updateTray();
   if (companionWindow) companionWindow.webContents.send('artwork-changed', info);
   if (tvServer) {
-    const showLabel = (getSettings().tvServerShowLabel as boolean) ?? true;
+    const showLabel = showLabelSetting();
     renderLock = renderLock.then(() => renderOffscreen(info, showLabel));
   }
 });
