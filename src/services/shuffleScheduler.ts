@@ -142,44 +142,24 @@ async function fetchOneValid(
   );
 
   if (available.length === 0) {
-    if (!silent) emitStatus({ phase: 'error', message: 'All sources are rate-limited. Waiting...' });
+    if (!silent) emitStatus({ phase: 'error', message: 'Every museum is resting for a moment…' });
     return null;
   }
 
+  // One museum at a time, in weighted random order. Racing them all and keeping the first
+  // answer meant the quickest API (Cleveland) won almost every time and the Met never did.
+  const order = available.filter((p, i) => available.indexOf(p) === i);
   const tried: string[] = [];
-  if (!silent) {
-    emitStatus({
-      phase: 'fetching',
-      message: `Reaching ${available.length} museum${available.length > 1 ? 's' : ''}...`,
-      providersTried: tried,
-    });
-  }
-
-  const races = available.slice(0, 4).map(async (provider) => {
+  for (const provider of order) {
     tried.push(provider.name);
-    const result = await tryOneProvider(provider, history, options);
-    if (result) return result;
-    throw new Error('provider failed');
-  });
-
-  try {
+    if (!silent) emitStatus({ phase: 'fetching', message: `Asking ${provider.name}…`, providersTried: tried });
     const result = await Promise.race([
-      Promise.any(races),
-      timeoutPromise<Artwork>(FETCH_TIMEOUT_MS, 'fetchOneValid'),
+      tryOneProvider(provider, history, options),
+      timeoutPromise<Artwork | null>(FETCH_TIMEOUT_MS, provider.name).catch(() => null),
     ]);
-    return result;
-  } catch {
-    if (!silent && available.length > 4) {
-      const fallback = available.slice(4);
-      for (const provider of fallback) {
-        tried.push(provider.name);
-        if (!silent) emitStatus({ phase: 'fetching', message: `Trying ${provider.name}...`, providersTried: tried });
-        const result = await tryOneProvider(provider, history, options);
-        if (result) return result;
-      }
-    }
-    return null;
+    if (result) return result;
   }
+  return null;
 }
 
 async function fillBuffer(settings: AppSettings, history: string[]): Promise<void> {

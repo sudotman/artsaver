@@ -33,6 +33,13 @@ export const chicagoProvider: ArtProvider = {
       const rawUrl = `${IIIF_BASE}/${pick.image_id}/full/1200,/0/default.jpg`;
       const imageUrl = negotiateImageSize(rawUrl, options?.maxWidth);
 
+      // The IIIF server sits behind a Cloudflare bot check that answers with an HTML page.
+      // Fail here, so the scheduler cools this source down instead of hanging broken images.
+      const probe = await apiFetch(imageUrl, { method: 'HEAD', signal: AbortSignal.timeout(8000) }).catch(() => null);
+      if (!probe?.ok || !(probe.headers.get('content-type') ?? '').startsWith('image/')) {
+        throw new Error(`Chicago images unavailable (${probe?.status ?? 'no response'})`);
+      }
+
       const artistRaw: string = pick.artist_display || 'Unknown Artist';
       const artist = artistRaw.split('\n')[0].trim();
 
