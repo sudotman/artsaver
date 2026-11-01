@@ -3,13 +3,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
 import * as http from 'http';
-import { loadOriginal, fillsScreen, roomHtml, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
+import { loadOriginal, fillsScreen, isBig, BIG_EDGE, roomHtml, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
 
 let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let idleCheckInterval: NodeJS.Timeout | null = null;
-interface ArtworkInfo { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; }
+interface ArtworkInfo { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; size?: { width: number; height: number }; largeImageUrl?: string; }
 let currentArtworkInfo: ArtworkInfo | null = null;
 let currentArtworkTitle = '';
 let isPaused = false;
@@ -257,6 +257,14 @@ const SLOT_COUNT = 10;
 interface ImageSlot { info: ArtworkInfo; at: number; composite?: Buffer; original?: Original; }
 const imageSlots: (ImageSlot | null)[] = new Array(SLOT_COUNT).fill(null);
 let nextSlotIndex = 0;
+// Pieces that fill a TV (a metre or more across, or already screen-shaped) outlast the ring, so a quiet
+// wall has several to show. Oldest first; served by id as /art/kept/<id>.jpg, so an address never changes piece.
+const KEPT_COUNT = 12;
+const keptSlots: ImageSlot[] = [];
+
+function fillsWall(slot: ImageSlot): boolean {
+  return !!slot.original && (isBig(slot.info.size) || fillsScreen(slot.original.width, slot.original.height));
+}
 let tvServerActivePort = 7247;
 
 let tvServer: http.Server | null = null;
@@ -286,7 +294,11 @@ function destroyOffscreenWin(): void {
 
 async function renderOffscreen(info: ArtworkInfo, showLabel: boolean): Promise<void> {
   if (!tvServer) return;
-  const original = await loadOriginal(info.imageUrl).catch((err) => {
+  // A big piece gets the museum's larger image when there is one, falling back to the usual.
+  const large = isBig(info.size) && info.largeImageUrl
+    ? await loadOriginal(info.largeImageUrl, BIG_EDGE).catch(() => null)
+    : null;
+  const original = large ?? await loadOriginal(info.imageUrl, isBig(info.size) ? BIG_EDGE : undefined).catch((err) => {
     console.warn('[TV] original image failed:', err);
     return null;
   });
@@ -295,6 +307,12 @@ async function renderOffscreen(info: ArtworkInfo, showLabel: boolean): Promise<v
   const slot = nextSlotIndex;
   nextSlotIndex = (nextSlotIndex + 1) % SLOT_COUNT;
   imageSlots[slot] = { info, at: Date.now(), composite: composite ?? undefined, original: original ?? undefined };
+  if (fillsWall(imageSlots[slot]!)) {
+    const kept = keptSlots.findIndex(k => k.info.id === info.id);
+    if (kept >= 0) keptSlots.splice(kept, 1);
+    keptSlots.push(imageSlots[slot]!);
+    if (keptSlots.length > KEPT_COUNT) keptSlots.shift();
+  }
   // /current.jpg always reflects the latest
   if (composite) currentImageBuffer = composite;
 }
@@ -413,12 +431,20 @@ function buildOverflightJson(hostHeader?: string): string {
   return JSON.stringify(entries, null, 2);
 }
 
-/** Clean originals with their metadata and colours, newest first. Vitrine draws its own walls. */
+/**
+ * Clean originals with their metadata and colours, newest first: the ring, then kept wall-filling pieces
+ * the ring has moved past. Vitrine draws its own walls.
+ */
 function buildFeedJson(hostHeader?: string): string {
   const base = baseUrl(hostHeader);
-  const pieces = newestSlots()
-    .filter(({ slot }) => slot.original)
-    .map(({ slot, n }) => ({
+  const ring = newestSlots().filter(({ slot }) => slot.original).map(({ slot, n }) => ({ slot, path: `art/${n}.jpg` }));
+  const inRing = new Set(ring.map(({ slot }) => slot.info.id));
+  const kept = keptSlots
+    .map(slot => ({ slot, path: `art/kept/${encodeURIComponent(slot.info.id)}.jpg` }))
+    .filter(({ slot }) => !inRing.has(slot.info.id))
+    .reverse();
+  const pieces = [...ring, ...kept]
+    .map(({ slot, path }) => ({
       id: slot.info.id,
       title: slot.info.title,
       artist: slot.info.artist,
@@ -427,11 +453,14 @@ function buildFeedJson(hostHeader?: string): string {
       collection: slot.info.collection ?? '',
       source: slot.info.source,
       sourceUrl: slot.info.sourceUrl,
-      image: `${base}/art/${n}.jpg?v=${encodeURIComponent(slot.info.id)}`,
+      image: `${base}/${path}?v=${encodeURIComponent(slot.info.id)}`,
       width: slot.original!.width,
       height: slot.original!.height,
       palette: slot.original!.palette,
       fillsScreen: fillsScreen(slot.original!.width, slot.original!.height),
+      // Centimetres, when the museum says; big pieces get the TV's full-screen close-up tour.
+      size: slot.info.size,
+      big: isBig(slot.info.size),
     }));
   return JSON.stringify({ version: 2, pieces });
 }
@@ -461,6 +490,17 @@ function startTvServer(port: number): void {
       if (!currentImageBuffer) { res.writeHead(503); res.end('No artwork loaded yet'); return; }
       res.writeHead(200, JPEG_HEADERS);
       res.end(currentImageBuffer);
+      return;
+    }
+
+    // Kept wall-filling pieces, by artwork id (originals only).
+    const keptMatch = urlPath.match(/^\/art\/kept\/([^/]+)\.jpg$/);
+    if (keptMatch) {
+      const id = decodeURIComponent(keptMatch[1]);
+      const buffer = keptSlots.find(k => k.info.id === id)?.original?.buffer;
+      if (!buffer) { res.writeHead(503); res.end('Slot empty'); return; }
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+      res.end(buffer);
       return;
     }
 
@@ -546,6 +586,7 @@ function stopTvServer(): void {
   destroyOffscreenWin();
   currentImageBuffer = null;
   imageSlots.fill(null);
+  keptSlots.length = 0;
   nextSlotIndex = 0;
 }
 

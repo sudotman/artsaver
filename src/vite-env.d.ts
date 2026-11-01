@@ -19,7 +19,7 @@ interface ElectronAPI {
   readLocalFolder: (path: string) => Promise<string[]>;
   openExternal: (url: string) => Promise<void>;
   setAutoStart: (enabled: boolean) => Promise<boolean>;
-  setCurrentArtwork: (info: { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string }) => Promise<void>;
+  setCurrentArtwork: (info: { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; size?: { width: number; height: number }; largeImageUrl?: string }) => Promise<void>;
   toggleCompanionWidget: (enabled: boolean) => Promise<void>;
   getScreensaverInfo: () => Promise<{ supported: boolean; registered: boolean }>;
   startTvServer: (port: number) => Promise<boolean>;

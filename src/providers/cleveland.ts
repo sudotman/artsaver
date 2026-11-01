@@ -50,6 +50,8 @@ export const clevelandProvider: ArtProvider = {
         source: 'cleveland',
         sourceUrl: pick.url || `https://clevelandart.org/art/${pick.accession_number}`,
         collection: 'Cleveland Museum of Art',
+        size: clevelandSize(pick.dimensions),
+        largeImageUrl: pick.images.print?.url,
       };
     });
   },
@@ -65,4 +67,10 @@ function classifyCleveland(type?: string): Artwork['category'] {
   if (lc.includes('print')) return 'print';
   if (lc.includes('textile')) return 'textile';
   return 'other';
+}
+
+/** Cleveland gives metres; the canvas itself (unframed) when it can. */
+function clevelandSize(d?: Record<string, { width?: number; height?: number } | undefined>): Artwork['size'] {
+  const part = [d?.unframed, d?.framed, ...Object.values(d ?? {})].find(p => p?.width && p?.height);
+  return part ? { width: part.width! * 100, height: part.height! * 100 } : undefined;
 }

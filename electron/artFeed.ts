@@ -6,9 +6,16 @@ import * as fs from 'fs';
 export interface Original { buffer: Buffer; width: number; height: number; palette: string[]; }
 
 const MAX_EDGE = 2400;
+/** Big pieces are shown full screen and in close-up on the TV, so they keep more of their detail. */
+export const BIG_EDGE = 3200;
 
-/** Downloads (or reads) the artwork, caps it at 2400px on the long edge, and samples its colours. */
-export async function loadOriginal(url: string): Promise<Original | null> {
+/** A metre or more on its long side: hung small, a piece like this loses what it is. */
+export function isBig(size?: { width: number; height: number }): boolean {
+  return !!size && Math.max(size.width, size.height) >= 100;
+}
+
+/** Downloads (or reads) the artwork, caps its long edge (2400px unless told), and samples its colours. */
+export async function loadOriginal(url: string, maxEdge = MAX_EDGE): Promise<Original | null> {
   let data: Buffer;
   if (/^https?:/i.test(url)) {
     const res = await net.fetch(url);
@@ -25,8 +32,8 @@ export async function loadOriginal(url: string): Promise<Original | null> {
   let img = nativeImage.createFromBuffer(data);
   if (img.isEmpty()) return null;
   const { width, height } = img.getSize();
-  if (Math.max(width, height) > MAX_EDGE) {
-    img = img.resize(width >= height ? { width: MAX_EDGE, quality: 'good' } : { height: MAX_EDGE, quality: 'good' });
+  if (Math.max(width, height) > maxEdge) {
+    img = img.resize(width >= height ? { width: maxEdge, quality: 'good' } : { height: maxEdge, quality: 'good' });
   }
   const size = img.getSize();
   const small = img.resize({ width: 32, height: 32, quality: 'good' });

@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readLocalFolder: (path: string) => ipcRenderer.invoke('read-local-folder', path),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
-  setCurrentArtwork: (info: { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string }) => ipcRenderer.invoke('set-current-artwork', info),
+  setCurrentArtwork: (info: { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; size?: { width: number; height: number }; largeImageUrl?: string }) => ipcRenderer.invoke('set-current-artwork', info),
   toggleCompanionWidget: (enabled: boolean) => ipcRenderer.invoke('toggle-companion-widget', enabled),
   getScreensaverInfo: () => ipcRenderer.invoke('get-screensaver-info'),
   startTvServer: (port: number) => ipcRenderer.invoke('start-tv-server', port),

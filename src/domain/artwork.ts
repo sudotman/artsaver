@@ -10,7 +10,13 @@ export interface Artwork {
   sourceUrl?: string;
   collection: string;
   timestamp?: number;
+  /** The object's own size in centimetres, when the museum publishes it. */
+  size?: ArtSize;
+  /** A higher-resolution image than imageUrl, for big pieces shown full screen on the TV. */
+  largeImageUrl?: string;
 }
+
+export interface ArtSize { width: number; height: number; }
 
 export type ArtSource = 'met' | 'chicago' | 'cleveland' | 'vam' | 'local';
 

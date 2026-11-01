@@ -51,6 +51,8 @@ export const vamProvider: ArtProvider = {
         source: 'vam',
         sourceUrl: `https://collections.vam.ac.uk/item/${pick.systemNumber}`,
         collection: 'Victoria and Albert Museum',
+        size: await vamSize(pick.systemNumber),
+        largeImageUrl: `${iiifBase}full/!3200,3200/0/default.jpg`,
       };
     });
   },
@@ -66,4 +68,22 @@ function classifyVam(type?: string): Artwork['category'] {
   if (lc.includes('print')) return 'print';
   if (lc.includes('textile')) return 'textile';
   return 'other';
+}
+
+const UNIT_CM: Record<string, number> = { mm: 0.1, cm: 1, m: 100, in: 2.54 };
+
+/** Search results carry no measurements; the object record does. Unframed or overall over framed. */
+async function vamSize(systemNumber: string): Promise<Artwork['size']> {
+  try {
+    const res = await apiFetch(`https://api.vam.ac.uk/v2/object/${systemNumber}`, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return undefined;
+    const dims: { dimension?: string; value?: string; unit?: string; part?: string }[] = (await res.json()).record?.dimensions ?? [];
+    const rank = (part = '') => (/frame|mount|case/i.test(part) ? 1 : 0);
+    const cm = (name: string) => dims
+      .filter(d => d.dimension === name && UNIT_CM[d.unit ?? ''] && parseFloat(d.value ?? ''))
+      .sort((a, b) => rank(a.part) - rank(b.part))
+      .map(d => parseFloat(d.value!) * UNIT_CM[d.unit!])[0];
+    const width = cm('Width'), height = cm('Height');
+    return width && height ? { width, height } : undefined;
+  } catch { return undefined; }
 }

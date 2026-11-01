@@ -86,9 +86,17 @@ export const metProvider: ArtProvider = {
           source: 'met',
           sourceUrl: obj.objectURL || undefined,
           collection: 'The Metropolitan Museum of Art',
+          size: metSize(obj.measurements),
         };
       }
       return null;
     });
   },
 };
+
+/** The object's "Overall" height and width (the Met measures in centimetres), or the first part that has both. */
+function metSize(measurements?: { elementName?: string; elementMeasurements?: Record<string, number> }[]): Artwork['size'] {
+  const parts = (measurements ?? []).filter(m => m.elementMeasurements?.Height && m.elementMeasurements?.Width);
+  const m = (parts.find(p => p.elementName === 'Overall') ?? parts[0])?.elementMeasurements;
+  return m ? { width: m.Width, height: m.Height } : undefined;
+}
