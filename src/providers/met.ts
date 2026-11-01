@@ -87,6 +87,9 @@ export const metProvider: ArtProvider = {
           sourceUrl: obj.objectURL || undefined,
           collection: 'The Metropolitan Museum of Art',
           size: metSize(obj.measurements),
+          wikidata: { artist: qid(obj.artistWikidata_URL), object: qid(obj.objectWikidata_URL) },
+          born: Number(obj.artistBeginDate) || undefined,
+          period: obj.period || undefined,
         };
       }
       return null;
@@ -99,4 +102,9 @@ function metSize(measurements?: { elementName?: string; elementMeasurements?: Re
   const parts = (measurements ?? []).filter(m => m.elementMeasurements?.Height && m.elementMeasurements?.Width);
   const m = (parts.find(p => p.elementName === 'Overall') ?? parts[0])?.elementMeasurements;
   return m ? { width: m.Width, height: m.Height } : undefined;
+}
+
+/** "https://www.wikidata.org/wiki/Q5582" → "Q5582". */
+function qid(url?: string): string | undefined {
+  return url?.match(/\/(Q\d+)$/)?.[1];
 }

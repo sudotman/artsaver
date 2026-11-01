@@ -4,12 +4,13 @@ import * as fs from 'fs';
 import * as https from 'https';
 import * as http from 'http';
 import { loadOriginal, fillsScreen, isBig, BIG_EDGE, roomHtml, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
+import { createMovements } from './movement';
 
 let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let idleCheckInterval: NodeJS.Timeout | null = null;
-interface ArtworkInfo { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; size?: { width: number; height: number }; largeImageUrl?: string; }
+interface ArtworkInfo { id: string; title: string; artist: string; year?: string; medium?: string; collection?: string; imageUrl: string; source: string; sourceUrl?: string; size?: { width: number; height: number }; largeImageUrl?: string; wikidata?: { artist?: string; object?: string }; born?: number; period?: string; movement?: string; }
 let currentArtworkInfo: ArtworkInfo | null = null;
 let currentArtworkTitle = '';
 let isPaused = false;
@@ -292,8 +293,14 @@ function destroyOffscreenWin(): void {
   if (offscreenWin) { offscreenWin.close(); offscreenWin = null; }
 }
 
+// Art movements from Wikidata, kept in userData so each artist is looked up once.
+let movements: ReturnType<typeof createMovements> | null = null;
+
 async function renderOffscreen(info: ArtworkInfo, showLabel: boolean): Promise<void> {
   if (!tvServer) return;
+  movements ??= createMovements(path.join(app.getPath('userData'), 'movements.json'));
+  // Filled in when Wikidata answers; the feed carries it from then on.
+  movements.of(info).then(m => { if (m) info.movement = m; });
   // A big piece gets the museum's larger image when there is one, falling back to the usual.
   const large = isBig(info.size) && info.largeImageUrl
     ? await loadOriginal(info.largeImageUrl, BIG_EDGE).catch(() => null)
@@ -461,6 +468,7 @@ function buildFeedJson(hostHeader?: string): string {
       // Centimetres, when the museum says; big pieces get the TV's full-screen close-up tour.
       size: slot.info.size,
       big: isBig(slot.info.size),
+      movement: slot.info.movement ?? '',
     }));
   return JSON.stringify({ version: 2, pieces });
 }

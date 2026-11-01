@@ -45,7 +45,8 @@ export const vamProvider: ArtProvider = {
       return {
         id: `vam-${pick.systemNumber}`,
         title: pick._primaryTitle || 'Untitled',
-        artist: pick._primaryMaker?.name || 'Unknown Artist',
+        // The V&A writes makers surname first ("Wild, Charles").
+        artist: (pick._primaryMaker?.name || 'Unknown Artist').replace(/^([^,(]+),\s*([^,(]+)$/, '$2 $1'),
         year: pick._primaryDate || '',
         category: classifyVam(pick.objectType),
         imageUrl,

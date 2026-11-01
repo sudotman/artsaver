@@ -14,6 +14,11 @@ export interface Artwork {
   size?: ArtSize;
   /** A higher-resolution image than imageUrl, for big pieces shown full screen on the TV. */
   largeImageUrl?: string;
+  /** What finds the artist's art movement on Wikidata: ids when the museum links them, else a birth year. */
+  wikidata?: { artist?: string; object?: string };
+  born?: number;
+  /** The museum's own period, for work no movement claims ("Edo period (1615–1868)"). */
+  period?: string;
 }
 
 export interface ArtSize { width: number; height: number; }

@@ -68,6 +68,8 @@ export const clevelandProvider: ArtProvider = {
         sourceUrl: pick.url || `https://clevelandart.org/art/${pick.accession_number}`,
         collection: 'Cleveland Museum of Art',
         size: clevelandSize(pick.dimensions),
+        // "Jean-Léon Gérôme (French, 1824–1904)": the birth year tells namesakes apart on Wikidata.
+        born: Number(artistRaw.match(/(\d{4})\s*[–-]/)?.[1]) || undefined,
         largeImageUrl: pick.images.print?.url,
       };
     });
