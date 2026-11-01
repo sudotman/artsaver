@@ -4,14 +4,28 @@ import { apiFetch } from '../services/apiFetch';
 
 const BASE = 'https://openaccess-api.clevelandart.org/api/artworks/';
 
+// How many images each query matches, learned from the first answer, so offsets reach the whole
+// collection rather than its first few thousand (where one Byzantine gospel book's 800 leaves sit).
+const totals = new Map<string, number>();
+
+/**
+ * Pictures, paintings most often. Across the whole collection most images are objects (lace, spoons,
+ * chairs), which a wall of art doesn't want unless a category asks for them.
+ */
+const PICTURE_TYPES = ['Painting', 'Painting', 'Painting', 'Drawing', 'Drawing', 'Print', 'Print', 'Photograph'];
+
+/** Leaves of bound books (manuscript folios) are text pages, and come in runs of hundreds. */
+function isArt(a: any): boolean {
+  return a.images?.web?.url && a.title && a.type !== 'Bound Volume' && !/\bfolio\b/i.test(a.title);
+}
+
 export const clevelandProvider: ArtProvider = {
   name: 'Cleveland Museum of Art',
   source: 'cleveland',
 
   async fetchRandom(options?: FetchOptions): Promise<Artwork | null> {
     return withRateLimit('cleveland', async () => {
-      const skip = Math.floor(Math.random() * 5000);
-      let url = `${BASE}?has_image=1&limit=10&skip=${skip}`;
+      let query = 'has_image=1';
 
       if (options?.category) {
         const typeMap: Record<string, string> = {
@@ -22,16 +36,19 @@ export const clevelandProvider: ArtProvider = {
           print: 'Print',
           textile: 'Textile',
         };
-        if (typeMap[options.category]) url += `&type=${typeMap[options.category]}`;
+        if (typeMap[options.category]) query += `&type=${typeMap[options.category]}`;
+      } else {
+        query += `&type=${PICTURE_TYPES[Math.floor(Math.random() * PICTURE_TYPES.length)]}`;
       }
+      const total = totals.get(query) ?? 5000;
+      const url = `${BASE}?${query}&limit=10&skip=${Math.floor(Math.random() * Math.max(1, total - 10))}`;
 
       const res = await apiFetch(url, { signal: AbortSignal.timeout(12000) });
       if (!res.ok) throw new Error(`Cleveland API returned ${res.status}`);
 
       const data = await res.json();
-      const artworks = (data.data ?? []).filter(
-        (a: any) => a.images?.web?.url && a.title
-      );
+      if (data.info?.total) totals.set(query, data.info.total);
+      const artworks = (data.data ?? []).filter(isArt);
       if (artworks.length === 0) return null;
 
       const pick = artworks[Math.floor(Math.random() * artworks.length)];

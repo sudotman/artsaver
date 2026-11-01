@@ -4,33 +4,34 @@ import { apiFetch } from '../services/apiFetch';
 
 const BASE = 'https://api.vam.ac.uk/v2/objects/search';
 
+/** Paintings most often, then works on paper and photographs. */
+const DEFAULT_TYPES = ['painting', 'painting', 'oil painting', 'watercolour', 'drawing', 'print', 'photograph'];
+const VAM_TYPES: Record<string, string> = {
+  painting: 'painting', photograph: 'photograph', drawing: 'drawing', print: 'print', sculpture: 'sculpture', textile: 'textile',
+};
+const counts = new Map<string, number>();
+
 export const vamProvider: ArtProvider = {
   name: 'Victoria and Albert Museum',
   source: 'vam',
 
   async fetchRandom(options?: FetchOptions): Promise<Artwork | null> {
     return withRateLimit('vam', async () => {
-      const page = Math.floor(Math.random() * 200) + 1;
-      let query = 'painting OR sculpture OR photograph OR drawing';
-
-      if (options?.category) {
-        const typeMap: Record<string, string> = {
-          painting: 'Painting',
-          sculpture: 'Sculpture',
-          photograph: 'Photograph',
-          drawing: 'Drawing',
-          print: 'Print',
-          textile: 'Textile',
-        };
-        query = typeMap[options.category] || query;
-      }
-
-      const url = `${BASE}?q=${encodeURIComponent(query)}&images_exist=true&page_size=10&page=${page}`;
+      // By object type, across the whole result set: a free-text search matched only ~500 records,
+      // in runs of ten by one photographer.
+      const type = options?.category && VAM_TYPES[options.category]
+        ? VAM_TYPES[options.category]
+        : DEFAULT_TYPES[Math.floor(Math.random() * DEFAULT_TYPES.length)];
+      // The API serves the first 10,000 records of a search (1,000 pages of ten).
+      const pages = Math.min(1000, Math.ceil((counts.get(type) ?? 1000) / 10));
+      const page = Math.floor(Math.random() * pages) + 1;
+      const url = `${BASE}?q_object_type=${encodeURIComponent(type)}&images_exist=true&page_size=10&page=${page}`;
 
       const res = await apiFetch(url, { signal: AbortSignal.timeout(12000) });
       if (!res.ok) throw new Error(`V&A API returned ${res.status}`);
 
       const data = await res.json();
+      if (data.info?.record_count) counts.set(type, data.info.record_count);
       const records = (data.records ?? []).filter(
         (r: any) => r._images?._iiif_image_base_url && r._primaryTitle
       );

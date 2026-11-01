@@ -98,6 +98,32 @@ function timeoutPromise<T>(ms: number, label: string): Promise<T> {
   );
 }
 
+// Pieces come back too alike when a collection holds long runs of one thing: an artist's hundred
+// photographs, a manuscript's leaves. Each accepted piece leaves a key (its artist, or for anonymous
+// work the start of its title); a key seen in the last VARIETY_SPAN pieces is passed over.
+const VARIETY_SPAN = 30;
+const recentKeys: string[] = [];
+const ANONYMOUS = /^(unknown|anonymous|unidentified|-)/i;
+
+export function varietyKey(artwork: Pick<Artwork, 'artist' | 'title'>): string {
+  const artist = (artwork.artist || '').trim();
+  if (artist && !ANONYMOUS.test(artist)) return `artist:${artist.toLowerCase()}`;
+  const stem = (artwork.title || '').toLowerCase()
+    .replace(/\([^)]*\)|[\d.,:;'"]/g, ' ')
+    .split(/\s+/).filter(Boolean).slice(0, 3).join(' ');
+  return `title:${stem}`;
+}
+
+function tooAlike(artwork: Artwork): boolean {
+  const key = varietyKey(artwork);
+  return recentKeys.includes(key) || buffer.some(b => varietyKey(b) === key);
+}
+
+function remember(artwork: Artwork): void {
+  recentKeys.push(varietyKey(artwork));
+  if (recentKeys.length > VARIETY_SPAN) recentKeys.shift();
+}
+
 async function tryOneProvider(
   provider: ArtProvider,
   history: string[],
@@ -109,6 +135,7 @@ async function tryOneProvider(
       if (!artwork) continue;
       if (history.includes(artwork.id)) continue;
       if (buffer.some(b => b.id === artwork.id)) continue;
+      if (tooAlike(artwork)) continue;
 
       const url = negotiateImageSize(artwork.imageUrl, options.maxWidth);
       artwork.imageUrl = url;
@@ -118,6 +145,7 @@ async function tryOneProvider(
       if (!loaded) continue;
 
       artwork.timestamp = Date.now();
+      remember(artwork);
       return artwork;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
