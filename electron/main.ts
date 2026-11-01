@@ -16,6 +16,10 @@ let isPaused = false;
 
 const isDev = !app.isPackaged;
 
+// ArtSaver runs hidden on a TV's media PC. Electron's default for an uncaught error is a modal box that
+// freezes the main process, TV server included, until someone at the desk clicks OK; log it instead.
+process.on('uncaughtException', err => console.error('Uncaught exception in main process:', err));
+
 // ─── Settings persistence ───
 
 function getSettings(): Record<string, unknown> {
@@ -55,19 +59,27 @@ function writeCacheManifest(entries: CacheEntry[]): void {
   fs.writeFileSync(getCacheManifestPath(), JSON.stringify(entries, null, 2), 'utf-8');
 }
 
-function downloadImage(url: string, dest: string): Promise<boolean> {
+// The file is only opened once the image itself arrives: creating it before a redirect and deleting it
+// again left Windows with a pending delete, and reopening that path threw EPERM in the main process.
+function downloadImage(url: string, dest: string, redirects = 5): Promise<boolean> {
   return new Promise(resolve => {
     const mod = url.startsWith('https') ? https : http;
-    const file = fs.createWriteStream(dest);
     mod.get(url, { timeout: 15000 }, res => {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        const redir = res.headers.location;
-        if (redir) { file.close(); fs.unlinkSync(dest); downloadImage(redir, dest).then(resolve); return; }
+      const redir = res.headers.location;
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && redir && redirects > 0) {
+        res.resume();
+        downloadImage(new URL(redir, url).toString(), dest, redirects - 1).then(resolve);
+        return;
       }
-      if (res.statusCode !== 200) { file.close(); resolve(false); return; }
+      if (res.statusCode !== 200) { res.resume(); resolve(false); return; }
+      const file = fs.createWriteStream(dest);
+      const fail = () => { res.destroy(); file.destroy(); fs.rm(dest, { force: true }, () => resolve(false)); };
+      file.on('error', fail);
+      res.on('error', fail);
+      file.on('finish', () => resolve(true));
       res.pipe(file);
-      file.on('finish', () => { file.close(); resolve(true); });
-    }).on('error', () => { file.close(); resolve(false); });
+    }).on('error', () => resolve(false))
+      .on('timeout', function (this: http.ClientRequest) { this.destroy(); });
   });
 }
 
