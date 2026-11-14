@@ -23,6 +23,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCacheStats: () => ipcRenderer.invoke('get-cache-stats'),
   clearCache: () => ipcRenderer.invoke('clear-cache'),
 
+  getFavorites: () => ipcRenderer.invoke('get-favorites'),
+  keepArtwork: (artwork: any) => ipcRenderer.invoke('keep-artwork', artwork),
+  unkeepArtwork: (id: string) => ipcRenderer.invoke('unkeep-artwork', id),
+  onFavoritesChanged: (cb: (list: any[]) => void) => {
+    const handler = (_e: any, list: any[]) => cb(list);
+    ipcRenderer.on('favorites-changed', handler);
+    return () => ipcRenderer.removeListener('favorites-changed', handler);
+  },
+
   exportConfig: () => ipcRenderer.invoke('export-config'),
   importConfig: () => ipcRenderer.invoke('import-config'),
 

@@ -3,7 +3,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
 import * as http from 'http';
-import { loadOriginal, fillsScreen, isBig, BIG_EDGE, roomHtml, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
+import { loadOriginal, fillsScreen, isBig, BIG_EDGE, roomHtml, wallColours, WALL_CSS, WALL_FONTS, type Original } from './artFeed';
+import { createFavourites, type Favourites, type FavouriteEntry } from './favourites';
+import { keptPageHtml } from './keptPage';
 import { createMovements } from './movement';
 
 let mainWindow: BrowserWindow | null = null;
@@ -32,6 +34,22 @@ function getSettings(): Record<string, unknown> {
 function saveSettings(data: Record<string, unknown>): void {
   const p = path.join(app.getPath('userData'), 'settings.json');
   fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// ─── Favourites ───
+// The main process owns them: the TV keeps pieces too, and the renderer's settings saves carry a copy of
+// `_favorites` from whenever it loaded, so save-settings keeps the list on disk instead of theirs.
+
+let favourites: Favourites | null = null;
+
+function initFavourites(): Favourites {
+  favourites ??= createFavourites({
+    dir: path.join(app.getPath('userData'), 'favourites'),
+    read: () => (getSettings()._favorites as FavouriteEntry[] | undefined) ?? [],
+    write: list => saveSettings({ ...getSettings(), _favorites: list }),
+    changed: list => mainWindow?.webContents.send('favorites-changed', list),
+  });
+  return favourites;
 }
 
 // ─── Offline cache ───
@@ -450,6 +468,7 @@ function buildFeedJson(hostHeader?: string): string {
     .map(slot => ({ slot, path: `art/kept/${encodeURIComponent(slot.info.id)}.jpg` }))
     .filter(({ slot }) => !inRing.has(slot.info.id))
     .reverse();
+  const keptIds = new Set(initFavourites().list().map(f => f.artwork.id));
   const pieces = [...ring, ...kept]
     .map(({ slot, path }) => ({
       id: slot.info.id,
@@ -469,8 +488,42 @@ function buildFeedJson(hostHeader?: string): string {
       size: slot.info.size,
       big: isBig(slot.info.size),
       movement: slot.info.movement ?? '',
+      kept: keptIds.has(slot.info.id),
     }));
   return JSON.stringify({ version: 2, pieces });
+}
+
+/** Favourites, newest first, shaped like feed pieces; [walls] adds each one's wall colours for the kept page. */
+function buildKeptJson(hostHeader: string | undefined, walls: boolean): string {
+  const base = baseUrl(hostHeader);
+  const pieces = initFavourites().list().map(({ artwork: a, addedAt, picture }) => ({
+    id: a.id,
+    title: a.title,
+    artist: a.artist,
+    year: a.year ?? '',
+    medium: a.medium ?? '',
+    collection: a.collection ?? '',
+    source: a.source,
+    sourceUrl: a.sourceUrl,
+    // The museum's own image until the copy on disk exists.
+    image: picture ? `${base}/art/favourite/${picture.file}` : a.imageUrl,
+    width: picture?.width ?? 0,
+    height: picture?.height ?? 0,
+    palette: picture?.palette ?? [],
+    fillsScreen: picture ? fillsScreen(picture.width, picture.height) : false,
+    size: a.size,
+    big: isBig(a.size),
+    movement: a.movement ?? a.period ?? '',
+    kept: true,
+    keptAt: addedAt,
+    ...(walls ? { wall: wallColours(picture?.palette ?? []) } : {}),
+  }));
+  return JSON.stringify({ version: 1, pieces });
+}
+
+/** A piece the TV can see right now (ring or kept wall-fillers), by id. */
+function slotFor(id: string): ImageSlot | undefined {
+  return [...imageSlots, ...keptSlots].find((s): s is ImageSlot => !!s && s.info.id === id);
 }
 
 function startTvServer(port: number): void {
@@ -522,6 +575,50 @@ function startTvServer(port: number): void {
       // Originals are addressed with ?v=<artwork id>, so a filled slot never reuses a cached URL.
       res.writeHead(200, slotMatch[1] ? { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' } : JPEG_HEADERS);
       res.end(buffer);
+      return;
+    }
+
+    // Favourite pictures, saved on disk.
+    const favMatch = urlPath.match(/^\/art\/favourite\/([^/]+)$/);
+    if (favMatch) {
+      const file = initFavourites().picturePath(decodeURIComponent(favMatch[1]));
+      fs.readFile(file ?? '', (err, buffer) => {
+        if (err || !file) { res.writeHead(404); res.end('Not kept'); return; }
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' });
+        res.end(buffer);
+      });
+      return;
+    }
+
+    if (urlPath === '/kept' || urlPath === '/kept/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(keptPageHtml());
+      return;
+    }
+
+    if (urlPath === '/kept.json') {
+      const walls = /[?&]walls=1\b/.test(req.url ?? '');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(buildKeptJson(req.headers.host, walls));
+      return;
+    }
+
+    // Keeping from the TV: POST /keep?id=<artwork id> for a piece in the feed; /unkeep for any favourite.
+    if ((urlPath === '/keep' || urlPath === '/unkeep') && req.method === 'POST') {
+      const id = new URL(req.url ?? '', 'http://x').searchParams.get('id') ?? '';
+      const reply = (code: number, body?: unknown) => {
+        res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(body ?? {}));
+      };
+      const fav = initFavourites();
+      if (urlPath === '/unkeep') {
+        fav.unkeep(id).then(gone => reply(gone ? 200 : 404, { kept: false })).catch(() => reply(500));
+        return;
+      }
+      if (fav.has(id)) { reply(200, { kept: true }); return; }
+      const slot = slotFor(id);
+      if (!slot) { reply(404, { error: 'not on the wall' }); return; }
+      fav.keep(slot.info as any, slot.original).then(() => reply(200, { kept: true })).catch(() => reply(500));
       return;
     }
 
@@ -624,7 +721,7 @@ function getLanIp(): string {
 ipcMain.handle('get-settings', () => getSettings());
 ipcMain.handle('save-settings', (_e, data: Record<string, unknown>) => {
   const prev = getSettings();
-  saveSettings(data);
+  saveSettings({ ...data, _favorites: prev._favorites ?? [] });
   // Re-render immediately if the label toggle changed while server is running
   if (tvServer && currentArtworkInfo && data.tvServerShowLabel !== prev.tvServerShowLabel) {
     const showLabel = (data.tvServerShowLabel as boolean) ?? true;
@@ -632,6 +729,12 @@ ipcMain.handle('save-settings', (_e, data: Record<string, unknown>) => {
   }
   return true;
 });
+ipcMain.handle('get-favorites', () => initFavourites().list());
+ipcMain.handle('keep-artwork', (_e, artwork) => {
+  const slot = slotFor(artwork.id);
+  return initFavourites().keep(artwork, slot?.original).then(() => true, () => false);
+});
+ipcMain.handle('unkeep-artwork', (_e, id: string) => initFavourites().unkeep(id));
 ipcMain.handle('get-idle-time', () => powerMonitor.getSystemIdleTime());
 ipcMain.handle('toggle-fullscreen', () => { if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen()); });
 ipcMain.handle('minimize-window', () => mainWindow?.minimize());
@@ -775,6 +878,9 @@ app.whenReady().then(() => {
   if (hidden && mainWindow) {
     mainWindow.hide();
   }
+
+  // Older favourites only point at the museum's image: copy them down, quietly, one at a time.
+  setTimeout(() => initFavourites().fill().catch(err => console.warn('[Favourites] fill:', err)), 20_000);
 
   const settings = getSettings();
   if (settings.companionWidgetEnabled) createCompanionWidget();

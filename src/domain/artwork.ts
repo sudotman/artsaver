@@ -58,6 +58,8 @@ export interface PlaylistFilters {
 export interface FavoriteEntry {
   artwork: Artwork;
   addedAt: number;
+  /** The copy ArtSaver saved to disk (file name, size, colours); set by the main process. */
+  picture?: { file: string; width: number; height: number; palette: string[] };
 }
 
 export interface HistoryEntry {

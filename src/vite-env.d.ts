@@ -31,6 +31,10 @@ interface ElectronAPI {
   getCacheStats: () => Promise<{ count: number; totalSizeBytes: number }>;
   clearCache: () => Promise<boolean>;
 
+  getFavorites: () => Promise<import('./domain/artwork').FavoriteEntry[]>;
+  keepArtwork: (artwork: import('./domain/artwork').Artwork) => Promise<boolean>;
+  unkeepArtwork: (id: string) => Promise<boolean>;
+  onFavoritesChanged: (cb: (list: import('./domain/artwork').FavoriteEntry[]) => void) => () => void;
   exportConfig: () => Promise<boolean>;
   importConfig: () => Promise<Record<string, unknown> | null>;
 

@@ -8,27 +8,22 @@ interface FavoritesData {
   history: HistoryEntry[];
 }
 
+// Favourites belong to the main process, which the TV can also add to; the renderer asks it and listens.
+// History stays in settings here.
 async function loadData(): Promise<FavoritesData> {
   if (!window.electronAPI) return { favorites: [], history: [] };
   try {
-    const settings = await window.electronAPI.getSettings();
-    return {
-      favorites: (settings._favorites as FavoriteEntry[]) ?? [],
-      history: (settings._history as HistoryEntry[]) ?? [],
-    };
+    const [favorites, settings] = await Promise.all([window.electronAPI.getFavorites(), window.electronAPI.getSettings()]);
+    return { favorites: favorites ?? [], history: (settings._history as HistoryEntry[]) ?? [] };
   } catch {
     return { favorites: [], history: [] };
   }
 }
 
-async function persistData(data: FavoritesData): Promise<void> {
+async function persistHistory(history: HistoryEntry[]): Promise<void> {
   if (!window.electronAPI) return;
   const settings = await window.electronAPI.getSettings();
-  await window.electronAPI.saveSettings({
-    ...settings,
-    _favorites: data.favorites,
-    _history: data.history,
-  });
+  await window.electronAPI.saveSettings({ ...settings, _history: history });
 }
 
 export function useFavorites() {
@@ -42,24 +37,19 @@ export function useFavorites() {
       setHistory(data.history);
       setLoaded(true);
     });
+    return window.electronAPI?.onFavoritesChanged(list => setFavorites(list));
   }, []);
 
   const addFavorite = useCallback((artwork: Artwork) => {
-    setFavorites(prev => {
-      if (prev.some(f => f.artwork.id === artwork.id)) return prev;
-      const next = [{ artwork, addedAt: Date.now() }, ...prev];
-      persistData({ favorites: next, history });
-      return next;
-    });
-  }, [history]);
+    // Shown at once; the main process confirms with the saved list.
+    setFavorites(prev => prev.some(f => f.artwork.id === artwork.id) ? prev : [{ artwork, addedAt: Date.now() }, ...prev]);
+    window.electronAPI?.keepArtwork(artwork);
+  }, []);
 
   const removeFavorite = useCallback((artworkId: string) => {
-    setFavorites(prev => {
-      const next = prev.filter(f => f.artwork.id !== artworkId);
-      persistData({ favorites: next, history });
-      return next;
-    });
-  }, [history]);
+    setFavorites(prev => prev.filter(f => f.artwork.id !== artworkId));
+    window.electronAPI?.unkeepArtwork(artworkId);
+  }, []);
 
   const isFavorite = useCallback((artworkId: string) => {
     return favorites.some(f => f.artwork.id === artworkId);
@@ -69,15 +59,15 @@ export function useFavorites() {
     setHistory(prev => {
       const entry: HistoryEntry = { artwork, shownAt: Date.now() };
       const next = [entry, ...prev].slice(0, MAX_HISTORY);
-      persistData({ favorites, history: next });
+      persistHistory(next);
       return next;
     });
-  }, [favorites]);
+  }, []);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
-    persistData({ favorites, history: [] });
-  }, [favorites]);
+    persistHistory([]);
+  }, []);
 
   const exportFavorites = useCallback(() => {
     const data = JSON.stringify(favorites, null, 2);
